@@ -8,13 +8,13 @@
 #include "ggml-common.hpp"
 
 
-static torch::Tensor dequantize_row_q4_0(const torch::Tensor &W, const torch::Tensor &output) {
-    assert(W.is_contiguous());
-    int64_t nb = W.size(0);
-    const block_q4_0 * x = (const block_q4_0 *) W.data_ptr();
-    float * y = (float*) output.data_ptr();
-
+void dequantize_row_q4_0(const block_q4_0 * x, float * y, int64_t k) {
     static const int qk = QK4_0;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
     for (int i = 0; i < nb; i++) {
         const float d = x[i].d;
 
@@ -26,16 +26,15 @@ static torch::Tensor dequantize_row_q4_0(const torch::Tensor &W, const torch::Te
             y[i*qk + j + qk/2] = x1*d;
         }
     }
-    return output;
-};
+}
 
-static torch::Tensor dequantize_row_q4_1(const torch::Tensor &W, const torch::Tensor &output) {
-    assert(W.is_contiguous());
-    int64_t nb = W.size(0);
-    const block_q4_1 * x = (const block_q4_1 *) W.data_ptr();
-    float * y = (float*) output.data_ptr();
-
+void dequantize_row_q4_1(const block_q4_1 * x, float * y, int64_t k) {
     static const int qk = QK4_1;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
     for (int i = 0; i < nb; i++) {
         const float d = x[i].d;
         const float m = x[i].m;
@@ -48,16 +47,15 @@ static torch::Tensor dequantize_row_q4_1(const torch::Tensor &W, const torch::Te
             y[i*qk + j + qk/2] = x1*d + m;
         }
     }
-    return output;
 }
 
-static torch::Tensor dequantize_row_q5_0(const torch::Tensor &W, const torch::Tensor &output) {
-    assert(W.is_contiguous());
-    int64_t nb = W.size(0);
-    const block_q5_0 * x = (const block_q5_0 *) W.data_ptr();
-    float * y = (float*) output.data_ptr();
-
+void dequantize_row_q5_0(const block_q5_0 * x, float * y, int64_t k) {
     static const int qk = QK5_0;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
     for (int i = 0; i < nb; i++) {
         const float d = x[i].d;
 
@@ -75,17 +73,15 @@ static torch::Tensor dequantize_row_q5_0(const torch::Tensor &W, const torch::Te
             y[i*qk + j + qk/2] = x1*d;
         }
     }
-    return output;
 }
 
-
-static torch::Tensor dequantize_row_q5_1(const torch::Tensor &W, const torch::Tensor &output) {
-    assert(W.is_contiguous());
-    int64_t nb = W.size(0);
-    const block_q5_1 * x = (const block_q5_1 *) W.data_ptr();
-    float * y = (float*) output.data_ptr();
-
+void dequantize_row_q5_1(const block_q5_1 * x, float * y, int64_t k) {
     static const int qk = QK5_1;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
     for (int i = 0; i < nb; i++) {
         const float d = x[i].d;
         const float m = x[i].m;
@@ -104,16 +100,15 @@ static torch::Tensor dequantize_row_q5_1(const torch::Tensor &W, const torch::Te
             y[i*qk + j + qk/2] = x1*d + m;
         }
     }
-    return output;
 }
 
-static torch::Tensor dequantize_row_q8_0(const torch::Tensor &W, const torch::Tensor &output) {
-    assert(W.is_contiguous());
-    int64_t nb = W.size(0);
-    const block_q8_0 * x = (const block_q8_0 *) W.data_ptr();
-    float * y = (float*) output.data_ptr();
-
+void dequantize_row_q8_0(const block_q8_0 * x, float * y, int64_t k) {
     static const int qk = QK8_0;
+
+    assert(k % qk == 0);
+
+    const int nb = k / qk;
+
     for (int i = 0; i < nb; i++) {
         const float d = x[i].d;
 
@@ -121,14 +116,36 @@ static torch::Tensor dequantize_row_q8_0(const torch::Tensor &W, const torch::Te
             y[i*qk + j] = x[i].qs[j]*d;
         }
     }
-    return output;
 }
 
 
+static torch::Tensor dequantize(const torch::Tensor W, int type, int64_t m, int64_t n) {
+    assert(W.is_contiguous());
+    int64_t k = m * n;
+    torch::Tensor output = torch::empty({m, n});
+
+    switch (type) {
+        case 2:
+            dequantize_row_q4_0((block_q4_0 *)W.data_ptr(), (float*) output.data_ptr(), k);
+            break;
+        case 3:
+            dequantize_row_q4_1((block_q4_1 *)W.data_ptr(), (float*) output.data_ptr(), k);
+            break;
+        case 6:
+            dequantize_row_q5_0((block_q5_0 *)W.data_ptr(), (float*) output.data_ptr(), k);
+            break;
+        case 7:
+            dequantize_row_q5_1((block_q5_1 *)W.data_ptr(), (float*) output.data_ptr(), k);
+            break;
+        case 8:
+            dequantize_row_q8_0((block_q8_0 *)W.data_ptr(), (float*) output.data_ptr(), k);
+            break;
+        default:
+            break;
+    }
+    return output;
+}
+
 PYBIND11_MODULE(TORCH_EXTENSION_NAME, m) {
-  m.def("dequantize_row_q4_0", &dequantize_row_q4_0, "dequantize Q4_0 tensor");
-  m.def("dequantize_row_q4_1", &dequantize_row_q4_1, "dequantize Q4_1 tensor");
-  m.def("dequantize_row_q5_0", &dequantize_row_q5_0, "dequantize Q5_0 blocks");
-  m.def("dequantize_row_q5_1", &dequantize_row_q5_1, "dequantize Q5_1 blocks");
-  m.def("dequantize_row_q8_0", &dequantize_row_q8_0, "dequantize Q8_0 blocks");
+  m.def("dequantize", &dequantize, "dequantize GGML tensor");
 }
