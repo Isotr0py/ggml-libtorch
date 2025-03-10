@@ -7,11 +7,10 @@ from gguf import GGMLQuantizationType, GGUFReader, ReaderTensor, dequantize
 from huggingface_hub import snapshot_download
 
 import ggml as ops
-from .utils import seed_everything
+from ..utils import seed_everything
 
 
-# GGUF_SAMPLE = snapshot_download("Isotr0py/test-gguf-sample")
-GGUF_SAMPLE = "./samples"
+GGUF_SAMPLE = snapshot_download("Isotr0py/test-gguf-sample")
 
 
 def get_gguf_sample_tensors(
