@@ -6,7 +6,7 @@ import torch
 from gguf import GGMLQuantizationType, GGUFReader, ReaderTensor, dequantize
 from huggingface_hub import snapshot_download
 
-import ggml_cuda as ops
+import ggml as ops
 from .utils import seed_everything
 
 
