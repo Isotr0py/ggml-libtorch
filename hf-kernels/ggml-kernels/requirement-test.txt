@@ -1,3 +1,0 @@
-gguf
-huggingface_hub
-pytest
