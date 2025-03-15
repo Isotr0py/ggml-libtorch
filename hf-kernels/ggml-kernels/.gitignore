@@ -1,0 +1,9 @@
+# nix
+flake.lock
+
+# build2cmake generated files
+CMakeLists.txt
+pyproject.toml
+setup.py
+_ops.py
+*.cmake

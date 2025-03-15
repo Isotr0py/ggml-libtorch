@@ -1,6 +1,3 @@
-# test_data
-samples/
-
 # Unit test / coverage reports
 htmlcov/
 .tox/
