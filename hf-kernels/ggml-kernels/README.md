@@ -17,6 +17,12 @@ Use `build2cmake` to generate the CMake/Python project for this kernel as follow
 build2cmake generate-torch build.toml -f
 ```
 
+Set the environment variable `CUDA_HOME` to the installation path of CUDA Toolkit, and make sure that the nvcc compiler is in your `PATH`, e.g.:
+```bash
+export CUDA_HOME=/usr/local/cuda
+export PATH="${CUDA_HOME}/bin:$PATH"
+```
+
 Then use `pip` to build and install the kernel to your python environment:
 
 ```bash
