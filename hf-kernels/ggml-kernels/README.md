@@ -24,7 +24,7 @@ pip install wheel # Needed once to enable bdist_wheel.
 pip install --no-build-isolation -e .
 ```
 
-## Build and test kernels with Nix
+## Build and test kernels with Nix (only for development)
 ```bash
 nix develop -L --extra-experimental-features nix-command --extra-experimental-features flakes
 
