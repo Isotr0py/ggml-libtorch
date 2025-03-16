@@ -1,6 +1,6 @@
 // copied from https://github.com/ggerganov/llama.cpp/blob/b2899/ggml-cuda/mmq.cu
 
-#define MMQ_TILE_Y_K (WARP_SIZE_GGUF + WARP_SIZE/QI8_1)
+#define MMQ_TILE_Y_K (WARP_SIZE_GGUF + WARP_SIZE_GGUF/QI8_1)
 
 struct block_q8_1_mmq {
     // The y float data is converted to a data layout that can simply be copied to shared memory as a contiguous block.
@@ -89,12 +89,12 @@ static __device__ __forceinline__ void vec_dot_q4_0_q8_1_dp4a(
 
 #pragma unroll
             for (int l = 0; l < VDR_Q4_0_Q8_1_MMQ; ++l) {
-                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE];
-                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI4_0) % WARP_SIZE];
+                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE_GGUF];
+                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI4_0) % WARP_SIZE_GGUF];
             }
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q4_0_q8_1_impl<VDR_Q4_0_Q8_1_MMQ>
-                (&x_qs[i*(WARP_SIZE + 1) + k0], u, x_df[i*(WARP_SIZE_GGUF/QI4_0) + i/QI4_0 + k0/QI4_0],
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q4_0_q8_1_impl<VDR_Q4_0_Q8_1_MMQ>
+                (&x_qs[i*(WARP_SIZE_GGUF + 1) + k0], u, x_df[i*(WARP_SIZE_GGUF/QI4_0) + i/QI4_0 + k0/QI4_0],
                 y_ds[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE_GGUF/QI8_1)]);
         }
     }
@@ -153,7 +153,7 @@ static __device__ __forceinline__ void vec_dot_q4_1_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
             const int kyqs = k0 % (QI8_1/2) + QI8_1 * (k0 / (QI8_1/2));
@@ -162,13 +162,13 @@ static __device__ __forceinline__ void vec_dot_q4_1_q8_1_dp4a(
 
 #pragma unroll
             for (int l = 0; l < VDR_Q4_1_Q8_1_MMQ; ++l) {
-                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE];
-                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI4_1) % WARP_SIZE];
+                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE_GGUF];
+                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI4_1) % WARP_SIZE_GGUF];
             }
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q4_1_q8_1_impl<VDR_Q4_1_Q8_1_MMQ>
-                (&x_qs[i*(WARP_SIZE + 1) + k0], u, x_dm[i*(WARP_SIZE/QI4_1) + i/QI4_1 + k0/QI4_1],
-                y_ds[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE/QI8_1)]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q4_1_q8_1_impl<VDR_Q4_1_Q8_1_MMQ>
+                (&x_qs[i*(WARP_SIZE_GGUF + 1) + k0], u, x_dm[i*(WARP_SIZE_GGUF/QI4_1) + i/QI4_1 + k0/QI4_1],
+                y_ds[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE_GGUF/QI8_1)]);
         }
     }
 }
@@ -201,7 +201,7 @@ template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinlin
         qs0    |= (qh << 25)   & 0x10000000;  // 3 -> 28
         qs0     = __vsubss4(qs0, 0x10101010); // subtract 16
 
-        x_qs[i * (2*WARP_SIZE + 1) + 2*threadIdx.x+0] = qs0;
+        x_qs[i * (2*WARP_SIZE_GGUF + 1) + 2*threadIdx.x+0] = qs0;
 
         int qs1 = (ql >>  4)   & 0x0F0F0F0F;
         qs1    |= (qh >> 12)   & 0x00000010;  // 16 ->  4
@@ -246,22 +246,22 @@ static __device__ __forceinline__ void vec_dot_q5_0_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
             const int kyqs = k0 % (QI8_1/2) + QI8_1 * (k0 / (QI8_1/2));
-            const int index_bx = i*(WARP_SIZE/QI5_0) + i/QI5_0 + k0/QI5_0;
+            const int index_bx = i*(WARP_SIZE_GGUF/QI5_0) + i/QI5_0 + k0/QI5_0;
 
             int u[2*VDR_Q5_0_Q8_1_MMQ];
 
 #pragma unroll
             for (int l = 0; l < VDR_Q5_0_Q8_1_MMQ; ++l) {
-                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE];
-                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI5_0) % WARP_SIZE];
+                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE_GGUF];
+                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI5_0) % WARP_SIZE_GGUF];
             }
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q8_0_q8_1_impl<QR5_0*VDR_Q5_0_Q8_1_MMQ>
-                (&x_qs[i*(2*WARP_SIZE + 1) + 2*k0], u, x_dmf[index_bx], y_df[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE/QI8_1)]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q8_0_q8_1_impl<QR5_0*VDR_Q5_0_Q8_1_MMQ>
+                (&x_qs[i*(2*WARP_SIZE_GGUF + 1) + 2*k0], u, x_dmf[index_bx], y_df[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE_GGUF/QI8_1)]);
         }
     }
 }
@@ -336,22 +336,22 @@ static __device__ __forceinline__ void vec_dot_q5_1_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
             const int kyqs = k0 % (QI8_1/2) + QI8_1 * (k0 / (QI8_1/2));
-            const int index_bx = i*(WARP_SIZE/QI5_1) + i/QI5_1 + k0/QI5_1;
+            const int index_bx = i*(WARP_SIZE_GGUF/QI5_1) + i/QI5_1 + k0/QI5_1;
 
             int u[2*VDR_Q5_1_Q8_1_MMQ];
 
 #pragma unroll
             for (int l = 0; l < VDR_Q5_1_Q8_1_MMQ; ++l) {
-                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE];
-                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI5_1) % WARP_SIZE];
+                u[2*l+0] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l)         % WARP_SIZE_GGUF];
+                u[2*l+1] = y_qs[j*MMQ_TILE_Y_K + (kyqs + l + QI5_1) % WARP_SIZE_GGUF];
             }
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q8_1_q8_1_impl<QR5_1*VDR_Q5_1_Q8_1_MMQ>
-                (&x_qs[i*(2*WARP_SIZE + 1) + 2*k0], u, x_dm[index_bx], y_ds[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE/QI8_1)]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q8_1_q8_1_impl<QR5_1*VDR_Q5_1_Q8_1_MMQ>
+                (&x_qs[i*(2*WARP_SIZE_GGUF + 1) + 2*k0], u, x_dm[index_bx], y_ds[j*MMQ_TILE_Y_K + (2*k0/QI8_1) % (WARP_SIZE_GGUF/QI8_1)]);
         }
     }
 }
@@ -411,11 +411,11 @@ static __device__ __forceinline__ void vec_dot_q8_0_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q8_0_q8_1_impl<VDR_Q8_0_Q8_1_MMQ>
-                (&x_qs[i*(WARP_SIZE + 1) + k0], &y_qs[j*MMQ_TILE_Y_K + k0], x_dmf[i*(WARP_SIZE/QI8_0) + i/QI8_0 + k0/QI8_0],
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q8_0_q8_1_impl<VDR_Q8_0_Q8_1_MMQ>
+                (&x_qs[i*(WARP_SIZE_GGUF + 1) + k0], &y_qs[j*MMQ_TILE_Y_K + k0], x_dmf[i*(WARP_SIZE_GGUF/QI8_0) + i/QI8_0 + k0/QI8_0],
                 y_df[j*MMQ_TILE_Y_K + k0/QI8_1]);
         }
     }
@@ -446,8 +446,8 @@ template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinlin
             const int k = kbx*QI2_K + (kqsx/8)*8 + l*2 + (kqsx % 8)/4;
 
             int x_qs_k = ((x_ql_0 >> (2*l)) & 0x03030303) << (2*(kqsx % 4));
-            x_qs_k |= __shfl_xor_sync(0xFFFFFFFF, x_qs_k, 1, WARP_SIZE);
-            x_qs_k |= __shfl_xor_sync(0xFFFFFFFF, x_qs_k, 2, WARP_SIZE);
+            x_qs_k |= __shfl_xor_sync(0xFFFFFFFF, x_qs_k, 1, WARP_SIZE_GGUF);
+            x_qs_k |= __shfl_xor_sync(0xFFFFFFFF, x_qs_k, 2, WARP_SIZE_GGUF);
 
             if (kqsx % QR2_K != 0) {
                 continue;
@@ -481,12 +481,12 @@ static __device__ __forceinline__ void vec_dot_q2_K_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q2_K_q8_1_impl_mmq(
-                &x_qs[i*(WARP_SIZE + 1) + k0], &y_qs[j*MMQ_TILE_Y_K + (QR2_K*k0) % WARP_SIZE],
-                &x_dm[i*(WARP_SIZE + 1) + k0], y_df[j*MMQ_TILE_Y_K + ((QR2_K*k0) % WARP_SIZE)/QI8_1]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q2_K_q8_1_impl_mmq(
+                &x_qs[i*(WARP_SIZE_GGUF + 1) + k0], &y_qs[j*MMQ_TILE_Y_K + (QR2_K*k0) % WARP_SIZE_GGUF],
+                &x_dm[i*(WARP_SIZE_GGUF + 1) + k0], y_df[j*MMQ_TILE_Y_K + ((QR2_K*k0) % WARP_SIZE_GGUF)/QI8_1]);
         }
     }
 }
@@ -520,7 +520,7 @@ template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinlin
             const int x_qh_k = ((x_qh_0 >>    l)  << 2) & 0x04040404;
 
             int x_qs_k = (x_ql_k | x_qh_k) << (4*(k%2));
-            x_qs_k |= __shfl_xor_sync(0xFFFFFFFF, x_qs_k, 1, WARP_SIZE);
+            x_qs_k |= __shfl_xor_sync(0xFFFFFFFF, x_qs_k, 1, WARP_SIZE_GGUF);
 
             if (kqsx % 2 != 0) {
                 continue;
@@ -587,17 +587,17 @@ static __device__ __forceinline__ void vec_dot_q3_K_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
             const int kbx  = k0 / QI3_K;
             const int ky  = (k0 % QI3_K) * QR3_K;
 
-            const int8_t * scales = ((const int8_t *) (x_sc + i * (WARP_SIZE/4) + i/4 + kbx*4)) + ky/4;
+            const int8_t * scales = ((const int8_t *) (x_sc + i * (WARP_SIZE_GGUF/4) + i/4 + kbx*4)) + ky/4;
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q3_K_q8_1_impl_mmq(
-                &x_qs[i*(2*WARP_SIZE + 1) + 2*k0], &y_qs[j*MMQ_TILE_Y_K + (k0*QR3_K) % WARP_SIZE], scales,
-                x_df[i*(WARP_SIZE/QI3_K) + i/QI3_K + kbx], y_df[j*MMQ_TILE_Y_K + ((k0*QR3_K) % WARP_SIZE)/QI8_1]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q3_K_q8_1_impl_mmq(
+                &x_qs[i*(2*WARP_SIZE_GGUF + 1) + 2*k0], &y_qs[j*MMQ_TILE_Y_K + (k0*QR3_K) % WARP_SIZE_GGUF], scales,
+                x_df[i*(WARP_SIZE_GGUF/QI3_K) + i/QI3_K + kbx], y_df[j*MMQ_TILE_Y_K + ((k0*QR3_K) % WARP_SIZE_GGUF)/QI8_1]);
         }
     }
 }
@@ -674,14 +674,14 @@ static __device__ __forceinline__ void vec_dot_q4_K_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
-            const uint8_t * sc = ((const uint8_t *) &x_sc[i * (WARP_SIZE/8) + i/8 + k0/16]) + 2*((k0 % 16) / 8);
+            const uint8_t * sc = ((const uint8_t *) &x_sc[i * (WARP_SIZE_GGUF/8) + i/8 + k0/16]) + 2*((k0 % 16) / 8);
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q4_K_q8_1_impl_mmq(
-                &x_qs[i*(WARP_SIZE + 1) + k0], &y_qs[j*MMQ_TILE_Y_K + (QR4_K*k0) % WARP_SIZE], sc, sc+8,
-                x_dm[i*(WARP_SIZE/QI4_K) + i/QI4_K], &y_ds[j*MMQ_TILE_Y_K + ((QR4_K*k0) % WARP_SIZE)/QI8_1]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q4_K_q8_1_impl_mmq(
+                &x_qs[i*(WARP_SIZE_GGUF + 1) + k0], &y_qs[j*MMQ_TILE_Y_K + (QR4_K*k0) % WARP_SIZE_GGUF], sc, sc+8,
+                x_dm[i*(WARP_SIZE_GGUF/QI4_K) + i/QI4_K], &y_ds[j*MMQ_TILE_Y_K + ((QR4_K*k0) % WARP_SIZE_GGUF)/QI8_1]);
         }
     }
 }
@@ -744,7 +744,7 @@ template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinlin
             i = min(i, i_max);
         }
 
-        const block_q5_K * bxi = (const block_q5_K *) x + kbx0 + i*stride + (threadIdx.x % (WARP_SIZE/8)) / (QI5_K/8);
+        const block_q5_K * bxi = (const block_q5_K *) x + kbx0 + i*stride + (threadIdx.x % (WARP_SIZE_GGUF/8)) / (QI5_K/8);
 
         const int * scales = (const int *) bxi->scales;
 
@@ -771,14 +771,14 @@ static __device__ __forceinline__ void vec_dot_q5_K_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
-            const uint8_t * sc = ((const uint8_t *) &x_sc[i * (WARP_SIZE/8) + i/8 + k0/16]) + 2 * ((k0 % 16) / 8);
+            const uint8_t * sc = ((const uint8_t *) &x_sc[i * (WARP_SIZE_GGUF/8) + i/8 + k0/16]) + 2 * ((k0 % 16) / 8);
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q5_K_q8_1_impl_mmq(
-                &x_qs[i*(QR5_K*WARP_SIZE + 1) + QR5_K*k0], &y_qs[j*MMQ_TILE_Y_K + (QR5_K*k0) % WARP_SIZE], sc, sc+8,
-                x_dm[i*(WARP_SIZE/QI5_K) + i/QI5_K], &y_ds[j*MMQ_TILE_Y_K + ((QR5_K*k0) % WARP_SIZE)/QI8_1]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q5_K_q8_1_impl_mmq(
+                &x_qs[i*(QR5_K*WARP_SIZE_GGUF + 1) + QR5_K*k0], &y_qs[j*MMQ_TILE_Y_K + (QR5_K*k0) % WARP_SIZE_GGUF], sc, sc+8,
+                x_dm[i*(WARP_SIZE_GGUF/QI5_K) + i/QI5_K], &y_ds[j*MMQ_TILE_Y_K + ((QR5_K*k0) % WARP_SIZE_GGUF)/QI8_1]);
         }
     }
 }
@@ -862,14 +862,14 @@ static __device__ __forceinline__ void vec_dot_q6_K_q8_1_dp4a(
         const int j = j0 + threadIdx.y;
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = i0 + threadIdx.x;
 
-            const int8_t * sc = ((const int8_t *) &x_sc[i * (WARP_SIZE/8) + i/8 + k0/8]);
+            const int8_t * sc = ((const int8_t *) &x_sc[i * (WARP_SIZE_GGUF/8) + i/8 + k0/8]);
 
-            sum[j0/nwarps*mmq_y/WARP_SIZE + i0/WARP_SIZE] += vec_dot_q6_K_q8_1_impl_mmq(
-                &x_qs[i*(QR6_K*WARP_SIZE + 1) + QR6_K*k0], &y_qs[j*MMQ_TILE_Y_K + (QR6_K*k0) % WARP_SIZE], sc,
-                x_dmf[i*(WARP_SIZE/QI6_K) + i/QI6_K], &y_df[j*MMQ_TILE_Y_K + ((QR6_K*k0) % WARP_SIZE)/QI8_1]);
+            sum[j0/nwarps*mmq_y/WARP_SIZE_GGUF + i0/WARP_SIZE_GGUF] += vec_dot_q6_K_q8_1_impl_mmq(
+                &x_qs[i*(QR6_K*WARP_SIZE_GGUF + 1) + QR6_K*k0], &y_qs[j*MMQ_TILE_Y_K + (QR6_K*k0) % WARP_SIZE_GGUF], sc,
+                x_dmf[i*(WARP_SIZE_GGUF/QI6_K) + i/QI6_K], &y_df[j*MMQ_TILE_Y_K + ((QR6_K*k0) % WARP_SIZE_GGUF)/QI8_1]);
         }
     }
 }
@@ -888,14 +888,14 @@ static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restr
         }
 
 #pragma unroll
-        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE_GGUF) {
             const int i = blockIdx.x*mmq_y + i0 + threadIdx.x;
 
             if (need_check && i >= ne0) {
                 continue;
             }
 
-            dst[j*ne0 + i] = sum[(j0/nwarps) * (mmq_y/WARP_SIZE) + i0/WARP_SIZE];
+            dst[j*ne0 + i] = sum[(j0/nwarps) * (mmq_y/WARP_SIZE_GGUF) + i0/WARP_SIZE_GGUF];
         }
     }
 }
@@ -1017,16 +1017,16 @@ struct tile_x_sizes {
     int sc;
 };
 
-#define TILE_X_SIZES_Q4_0 tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE/QI4_0 + mmq_y/QI4_0, 0}
-#define TILE_X_SIZES_Q4_1 tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE/QI4_1 + mmq_y/QI4_1, 0}
-#define TILE_X_SIZES_Q5_0 tile_x_sizes{mmq_y*WARP_SIZE*2 + mmq_y, mmq_y*WARP_SIZE/QI5_0 + mmq_y/QI5_0, 0}
-#define TILE_X_SIZES_Q5_1 tile_x_sizes{mmq_y*WARP_SIZE*2 + mmq_y, mmq_y*WARP_SIZE/QI5_1 + mmq_y/QI5_1, 0}
-#define TILE_X_SIZES_Q8_0 tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE/QI8_0 + mmq_y/QI8_0, 0}
-#define TILE_X_SIZES_Q2_K tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE       + mmq_y,       0}
-#define TILE_X_SIZES_Q3_K tile_x_sizes{mmq_y*WARP_SIZE*2 + mmq_y, mmq_y*WARP_SIZE/QI3_K + mmq_y/QI3_K, mmq_y*WARP_SIZE/4 + mmq_y/4}
-#define TILE_X_SIZES_Q4_K tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE/QI4_K + mmq_y/QI4_K, mmq_y*WARP_SIZE/8 + mmq_y/8}
-#define TILE_X_SIZES_Q5_K tile_x_sizes{mmq_y*WARP_SIZE*2 + mmq_y, mmq_y*WARP_SIZE/QI5_K + mmq_y/QI5_K, mmq_y*WARP_SIZE/8 + mmq_y/8}
-#define TILE_X_SIZES_Q6_K tile_x_sizes{mmq_y*WARP_SIZE*2 + mmq_y, mmq_y*WARP_SIZE/QI6_K + mmq_y/QI6_K, mmq_y*WARP_SIZE/8 + mmq_y/8}
+#define TILE_X_SIZES_Q4_0 tile_x_sizes{mmq_y*WARP_SIZE_GGUF   + mmq_y, mmq_y*WARP_SIZE_GGUF/QI4_0 + mmq_y/QI4_0, 0}
+#define TILE_X_SIZES_Q4_1 tile_x_sizes{mmq_y*WARP_SIZE_GGUF   + mmq_y, mmq_y*WARP_SIZE_GGUF/QI4_1 + mmq_y/QI4_1, 0}
+#define TILE_X_SIZES_Q5_0 tile_x_sizes{mmq_y*WARP_SIZE_GGUF*2 + mmq_y, mmq_y*WARP_SIZE_GGUF/QI5_0 + mmq_y/QI5_0, 0}
+#define TILE_X_SIZES_Q5_1 tile_x_sizes{mmq_y*WARP_SIZE_GGUF*2 + mmq_y, mmq_y*WARP_SIZE_GGUF/QI5_1 + mmq_y/QI5_1, 0}
+#define TILE_X_SIZES_Q8_0 tile_x_sizes{mmq_y*WARP_SIZE_GGUF   + mmq_y, mmq_y*WARP_SIZE_GGUF/QI8_0 + mmq_y/QI8_0, 0}
+#define TILE_X_SIZES_Q2_K tile_x_sizes{mmq_y*WARP_SIZE_GGUF   + mmq_y, mmq_y*WARP_SIZE_GGUF       + mmq_y,       0}
+#define TILE_X_SIZES_Q3_K tile_x_sizes{mmq_y*WARP_SIZE_GGUF*2 + mmq_y, mmq_y*WARP_SIZE_GGUF/QI3_K + mmq_y/QI3_K, mmq_y*WARP_SIZE_GGUF/4 + mmq_y/4}
+#define TILE_X_SIZES_Q4_K tile_x_sizes{mmq_y*WARP_SIZE_GGUF   + mmq_y, mmq_y*WARP_SIZE_GGUF/QI4_K + mmq_y/QI4_K, mmq_y*WARP_SIZE_GGUF/8 + mmq_y/8}
+#define TILE_X_SIZES_Q5_K tile_x_sizes{mmq_y*WARP_SIZE_GGUF*2 + mmq_y, mmq_y*WARP_SIZE_GGUF/QI5_K + mmq_y/QI5_K, mmq_y*WARP_SIZE_GGUF/8 + mmq_y/8}
+#define TILE_X_SIZES_Q6_K tile_x_sizes{mmq_y*WARP_SIZE_GGUF*2 + mmq_y, mmq_y*WARP_SIZE_GGUF/QI6_K + mmq_y/QI6_K, mmq_y*WARP_SIZE_GGUF/8 + mmq_y/8}
 
 #define GET_TILE_X_SIZES_BODY                           \
     return type == GGML_TYPE_Q4_0 ? TILE_X_SIZES_Q4_0 : \
@@ -1079,7 +1079,7 @@ static __device__ __forceinline__ void mul_mat_q(
     int   * tile_x_qs = (int   *)  data_mul_mat_q;
     half2 * tile_x_dm = (half2 *) (tile_x_qs + txs.qs);
     int   * tile_x_sc = (int   *) (tile_x_dm + txs.dm);
-    int   * tile_y    = (int   *) (tile_x_sc + txs.sc); // [mmq_x * (WARP_SIZE + WARP_SIZE/QI8_1)]
+    int   * tile_y    = (int   *) (tile_x_sc + txs.sc); // [mmq_x * (WARP_SIZE_GGUF + WARP_SIZE_GGUF/QI8_1)]
 
     const int blocks_per_row_x = ncols_x / qk;
     const int blocks_per_warp = WARP_SIZE_GGUF / qi;
@@ -1341,12 +1341,10 @@ mul_mat_q8_0(
     const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int ncols_y, const int nrows_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q8_0;
-    const int mmq_y  =  MMQ_Y_Q8_0;
     const int nwarps = NWARPS_Q8_0;
+    const int type = GGML_TYPE_Q8_0;
 
-    mul_mat_q<scalar_t, QK8_0, QR8_0, QI8_0, false, block_q8_0, mmq_x, mmq_y, nwarps, allocate_tiles_q8_0<mmq_y>,
-        load_tiles_q8_0<mmq_y, nwarps, need_check>, VDR_Q8_0_Q8_1_MMQ, vec_dot_q8_0_q8_1_mul_mat>
-        (vx, vy, dst, ncols_x, nrows_x, ncols_y, nrows_y, nrows_dst);
+    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, args.stride01, ncols_y, nrows_y, args.stride11, nrows_dst);
 }
 
 template<typename scalar_t>
