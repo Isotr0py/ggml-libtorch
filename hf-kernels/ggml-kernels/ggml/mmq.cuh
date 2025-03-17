@@ -877,8 +877,8 @@ static __device__ __forceinline__ void vec_dot_q6_K_q8_1_dp4a(
 
 // utility functions
 
-template<int mmq_x, int mmq_y, int nwarps, bool need_check>
-static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1) {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1) {
 #pragma unroll
     for (int j0 = 0; j0 < mmq_x; j0 += nwarps) {
         const int j = blockIdx.y*mmq_x + j0 + threadIdx.y;
@@ -907,7 +907,7 @@ typedef void (*load_tiles_mmq_t)(
 typedef void (*vec_dot_mmq_t)(
     const int * __restrict__ x_qs, const half2 * __restrict__ x_dm, const int * __restrict__ x_sc,
     const int * __restrict__ y, float * __restrict__ sum, const int & k0);
-typedef void (*mmq_write_back_t)(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1);
+// typedef void (*mmq_write_back_t)(const float * __restrict__ sum, (typename scalar_t) * __restrict__ dst, const int & ne0, const int & ne1);
 
 template <int mmq_x, int mmq_y, int nwarps, bool need_check, ggml_type type>
 struct mmq_type_traits;
@@ -1075,7 +1075,7 @@ static __device__ __forceinline__ void mul_mat_q(
     constexpr load_tiles_mmq_t load_tiles = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::load_tiles;
 
     constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::vec_dot_dp4a;
-    constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    // constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
 
     constexpr tile_x_sizes txs = get_tile_x_sizes_device<mmq_y>(type);
 
@@ -1101,7 +1101,7 @@ static __device__ __forceinline__ void mul_mat_q(
         load_tiles(vx, tile_x_qs, tile_x_dm, tile_x_sc, stride_col_x*blockIdx.x*mmq_y + kb0, tile_x_max_i, stride_col_x);
 
     #pragma unroll
-        for (int kr = 0; kr < qr; ++kr) {
+        for (int kr = 0; kr < qr && kb0 + kr * blocks_per_warp/qr < blocks_per_row_x; ++kr) {
             const int * by0 = y + stride_row_y*(kb0*(qk*sizeof(block_q8_1_mmq) / (4*QK8_1*sizeof(int))) + kr*sizeof(block_q8_1_mmq)/sizeof(int));
     #pragma unroll
             for (int l0 = 0; l0 < mmq_x*MMQ_TILE_Y_K; l0 += nwarps*WARP_SIZE_GGUF) {
@@ -1121,7 +1121,8 @@ static __device__ __forceinline__ void mul_mat_q(
         }
     }
 
-    write_back(sum, dst, nrows_dst, ne1);
+    // write_back(sum, dst, nrows_dst, ne1);
+    mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>(sum, dst, nrows_dst, ne1);
 }
 
 #if defined(USE_ROCM)
@@ -1143,9 +1144,8 @@ mul_mat_q4_0(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q4_0;
     const int nwarps = NWARPS_Q4_0;
-    const int type = GGML_TYPE_Q4_0;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q4_0, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1191,9 +1191,8 @@ mul_mat_q4_1(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q4_1;
     const int nwarps = NWARPS_Q4_1;
-    const int type = GGML_TYPE_Q4_1;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q4_1, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1239,9 +1238,8 @@ mul_mat_q5_0(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q5_0;
     const int nwarps = NWARPS_Q5_0;
-    const int type = GGML_TYPE_Q5_0;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q5_0, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1287,9 +1285,8 @@ mul_mat_q5_1(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q5_1;
     const int nwarps = NWARPS_Q5_1;
-    const int type = GGML_TYPE_Q5_1;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q5_1, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1335,9 +1332,8 @@ mul_mat_q8_0(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q8_0;
     const int nwarps = NWARPS_Q8_0;
-    const int type = GGML_TYPE_Q8_0;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q8_0, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1383,9 +1379,8 @@ mul_mat_q2_K(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q2_K;
     const int nwarps = NWARPS_Q2_K;
-    const int type = GGML_TYPE_Q2_K;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q2_K, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1431,9 +1426,8 @@ mul_mat_q3_K(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q3_K;
     const int nwarps = NWARPS_Q3_K;
-    const int type = GGML_TYPE_Q3_K;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q3_K, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1479,9 +1473,8 @@ mul_mat_q4_K(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q4_K;
     const int nwarps = NWARPS_Q4_K;
-    const int type = GGML_TYPE_Q4_K;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q4_K, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1527,9 +1520,8 @@ mul_mat_q5_K(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q5_K;
     const int nwarps = NWARPS_Q5_K;
-    const int type = GGML_TYPE_Q5_K;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q5_K, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
@@ -1575,9 +1567,8 @@ mul_mat_q6_K(
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q6_K;
     const int nwarps = NWARPS_Q6_K;
-    const int type = GGML_TYPE_Q6_K;
 
-    mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
+    mul_mat_q<scalar_t, GGML_TYPE_Q6_K, mmq_x, nwarps, need_check>(vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
 }
 
 template<typename scalar_t>
