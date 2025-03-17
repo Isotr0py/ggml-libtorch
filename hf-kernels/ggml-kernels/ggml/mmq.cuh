@@ -26,7 +26,7 @@ struct block_q8_1_mmq {
 
 // tiles loading function
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q4_0(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
     GGML_UNUSED(x_sc);
 
@@ -102,7 +102,7 @@ static __device__ __forceinline__ void vec_dot_q4_0_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q4_1(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
     GGML_UNUSED(x_sc);
 
@@ -174,7 +174,7 @@ static __device__ __forceinline__ void vec_dot_q4_1_q8_1_dp4a(
 }
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q5_0(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
     GGML_UNUSED(x_sc);
 
@@ -268,7 +268,7 @@ static __device__ __forceinline__ void vec_dot_q5_0_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q5_1(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
     GGML_UNUSED(x_sc);
 
@@ -358,7 +358,7 @@ static __device__ __forceinline__ void vec_dot_q5_1_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q8_0(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
     GGML_UNUSED(x_sc);
 
@@ -423,7 +423,7 @@ static __device__ __forceinline__ void vec_dot_q8_0_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q2_K(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
 
     const int kbx  = threadIdx.x / QI2_K;
@@ -493,7 +493,7 @@ static __device__ __forceinline__ void vec_dot_q2_K_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q3_K(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
 
     const int kbx  = threadIdx.x / QI3_K;
@@ -604,7 +604,7 @@ static __device__ __forceinline__ void vec_dot_q3_K_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q4_K(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
 
     const int kbx  = 0;           // threadIdx.x / QI4_K
@@ -688,7 +688,7 @@ static __device__ __forceinline__ void vec_dot_q4_K_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q5_K(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
 
     const int kbx  = 0;           // threadIdx.x / QI5_K
@@ -785,7 +785,7 @@ static __device__ __forceinline__ void vec_dot_q5_K_q8_1_dp4a(
 
 
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q6_K(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
 
     const int kbx  = 0;           // threadIdx.x / QI6_K
@@ -902,7 +902,7 @@ static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restr
 
 // -------------------------------------------------------------------------------------------------------------------------------------
 typedef void (*load_tiles_mmq_t)(
-    const void * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
+    const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride);
 typedef void (*vec_dot_mmq_t)(
     const int * __restrict__ x_qs, const half2 * __restrict__ x_dm, const int * __restrict__ x_sc,
@@ -1064,7 +1064,7 @@ static constexpr __device__ tile_x_sizes get_tile_x_sizes_device(ggml_type type)
 // ne0 -> nrows_dst
 template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
 static __device__ __forceinline__ void mul_mat_q(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
 
     constexpr int              qk         = ggml_cuda_type_traits<type>::qk;
@@ -1086,6 +1086,7 @@ static __device__ __forceinline__ void mul_mat_q(
     int   * tile_y    = (int   *) (tile_x_sc + txs.sc); // [mmq_x * (WARP_SIZE_GGUF + WARP_SIZE_GGUF/QI8_1)]
 
     const int blocks_per_row_x = ncols_x / qk;
+    const int blocks_per_col_y = nrows_y / QK8_1;
     const int blocks_per_warp = WARP_SIZE_GGUF / qi;
 
     const int & ne1 = nrows_y;
@@ -1098,7 +1099,7 @@ static __device__ __forceinline__ void mul_mat_q(
 
     for (int kb0 = 0; kb0 < blocks_per_row_x; kb0 += blocks_per_warp) {
 
-        load_tiles(vx, tile_x_qs, tile_x_dm, tile_x_sc, stride_col_x*blockIdx.x*mmq_y + kb0, tile_x_max_i, stride_col_x);
+        load_tiles(vx, tile_x_qs, tile_x_dm, tile_x_sc, blocks_per_row_x*blockIdx.x*mmq_y + kb0, tile_x_max_i, blocks_per_row_x);
 
     #pragma unroll
         for (int kr = 0; kr < qr && kb0 + kr * blocks_per_warp/qr < blocks_per_row_x; ++kr) {
@@ -1125,6 +1126,16 @@ static __device__ __forceinline__ void mul_mat_q(
     mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>(sum, dst, nrows_dst, ne1);
 }
 
+static int mmq_get_shmem(const ggml_type type, const int mmq_x, const int mmq_y, const int nwarps) {
+    const tile_x_sizes txs = get_tile_x_sizes_host(type, mmq_y);;
+
+    const int shmem_x = txs.qs*sizeof(int) + txs.dm*sizeof(half2) + txs.sc*sizeof(int);
+    const int shmem_y = mmq_x*WARP_SIZE_GGUF*sizeof(int) + mmq_x*(WARP_SIZE_GGUF/QI8_1)*sizeof(half2);
+    // ggml_pad ((x + n - 1) // n) * n
+    // return shmem_x + GGML_PAD(shmem_y, nwarps*WARP_SIZE*sizeof(int));
+    return shmem_x + (shmem_y+nwarps*WARP_SIZE_GGUF*sizeof(int)-1) / (nwarps*WARP_SIZE_GGUF*sizeof(int)) * (nwarps*WARP_SIZE_GGUF*sizeof(int));
+}
+
 #if defined(USE_ROCM)
 #define  MMQ_X_Q4_0  64
 #define  MMQ_Y_Q4_0  128
@@ -1140,7 +1151,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q4_0, 2)
 #endif
 mul_mat_q4_0(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q4_0;
     const int nwarps = NWARPS_Q4_0;
@@ -1150,7 +1161,7 @@ mul_mat_q4_0(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q4_0_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q4_0;
     const int mmq_y  =  MMQ_Y_Q4_0;
@@ -1161,13 +1172,25 @@ static void ggml_mul_mat_q4_0_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q4_0, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q4_0, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q4_0<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q4_0<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q4_0<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q4_0<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1187,7 +1210,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q4_1, 2)
 #endif
 mul_mat_q4_1(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q4_1;
     const int nwarps = NWARPS_Q4_1;
@@ -1197,7 +1220,7 @@ mul_mat_q4_1(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q4_1_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q4_1;
     const int mmq_y  =  MMQ_Y_Q4_1;
@@ -1208,13 +1231,25 @@ static void ggml_mul_mat_q4_1_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q4_1, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q4_1, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q4_1<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q4_1<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q4_1<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q4_1<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1234,7 +1269,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q5_0, 2)
 #endif
 mul_mat_q5_0(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q5_0;
     const int nwarps = NWARPS_Q5_0;
@@ -1244,7 +1279,7 @@ mul_mat_q5_0(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q5_0_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q5_0;
     const int mmq_y  =  MMQ_Y_Q5_0;
@@ -1255,13 +1290,25 @@ static void ggml_mul_mat_q5_0_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q5_0, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q5_0, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q5_0<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q5_0<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q5_0<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q5_0<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1281,7 +1328,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q5_1, 2)
 #endif
 mul_mat_q5_1(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q5_1;
     const int nwarps = NWARPS_Q5_1;
@@ -1291,7 +1338,7 @@ mul_mat_q5_1(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q5_1_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q5_1;
     const int mmq_y  =  MMQ_Y_Q5_1;
@@ -1302,13 +1349,25 @@ static void ggml_mul_mat_q5_1_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q5_1, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q5_1, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q5_1<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q5_1<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q5_1<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q5_1<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1328,7 +1387,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q8_0, 2)
 #endif
 mul_mat_q8_0(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q8_0;
     const int nwarps = NWARPS_Q8_0;
@@ -1338,7 +1397,7 @@ mul_mat_q8_0(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q8_0_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q8_0;
     const int mmq_y  =  MMQ_Y_Q8_0;
@@ -1349,13 +1408,25 @@ static void ggml_mul_mat_q8_0_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q8_0, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q8_0, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q8_0<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q8_0<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q8_0<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q8_0<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1375,7 +1446,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q2_K, 2)
 #endif
 mul_mat_q2_K(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q2_K;
     const int nwarps = NWARPS_Q2_K;
@@ -1385,7 +1456,7 @@ mul_mat_q2_K(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q2_K_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q2_K;
     const int mmq_y  =  MMQ_Y_Q2_K;
@@ -1396,13 +1467,25 @@ static void ggml_mul_mat_q2_K_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q2_K, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q2_K, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q2_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q2_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q2_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q2_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1422,7 +1505,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q3_K, 2)
 #endif
 mul_mat_q3_K(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q3_K;
     const int nwarps = NWARPS_Q3_K;
@@ -1432,7 +1515,7 @@ mul_mat_q3_K(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q3_K_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q3_K;
     const int mmq_y  =  MMQ_Y_Q3_K;
@@ -1443,13 +1526,25 @@ static void ggml_mul_mat_q3_K_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q3_K, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q3_K, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q3_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q3_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q3_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q3_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1469,7 +1564,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q4_K, 2)
 #endif
 mul_mat_q4_K(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q4_K;
     const int nwarps = NWARPS_Q4_K;
@@ -1479,7 +1574,7 @@ mul_mat_q4_K(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q4_K_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q4_K;
     const int mmq_y  =  MMQ_Y_Q4_K;
@@ -1490,13 +1585,25 @@ static void ggml_mul_mat_q4_K_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q4_K, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q4_K, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q4_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q4_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q4_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q4_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1516,7 +1623,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q5_K, 2)
 #endif
 mul_mat_q5_K(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q5_K;
     const int nwarps = NWARPS_Q5_K;
@@ -1526,7 +1633,7 @@ mul_mat_q5_K(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q5_K_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q5_K;
     const int mmq_y  =  MMQ_Y_Q5_K;
@@ -1537,13 +1644,25 @@ static void ggml_mul_mat_q5_K_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q5_K, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q5_K, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q5_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q5_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q5_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q5_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
@@ -1563,7 +1682,7 @@ template<typename scalar_t, bool need_check> static __global__ void
 __launch_bounds__(WARP_SIZE_GGUF*NWARPS_Q6_K, 2)
 #endif
 mul_mat_q6_K(
-    const void * __restrict__ vx, const void * __restrict__ vy, scalar_t * __restrict__ dst,
+    const char * __restrict__ vx, const char * __restrict__ vy, scalar_t * __restrict__ dst,
     const int ncols_x, const int nrows_x, const int stride_col_x, const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst) {
     const int mmq_x  =  MMQ_X_Q6_K;
     const int nwarps = NWARPS_Q6_K;
@@ -1573,7 +1692,7 @@ mul_mat_q6_K(
 
 template<typename scalar_t>
 static void ggml_mul_mat_q6_K_q8_1_cuda(
-    const void * vx, const void * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
+    const char * vx, const char * vy, scalar_t * dst, const int ncols_x, const int nrows_x, const int stride_col_x,
     const int ncols_y, const int nrows_y, const int stride_row_y, const int nrows_dst, cudaStream_t stream) {
     const int mmq_x  =  MMQ_X_Q6_K;
     const int mmq_y  =  MMQ_Y_Q6_K;
@@ -1584,13 +1703,25 @@ static void ggml_mul_mat_q6_K_q8_1_cuda(
     const dim3 block_nums(block_num_x, block_num_y, 1);
     const dim3 block_dims(WARP_SIZE_GGUF, nwarps, 1);
 
+    const tile_x_sizes txs = get_tile_x_sizes_host(GGML_TYPE_Q6_K, mmq_y);
+    const int shmem = mmq_get_shmem(GGML_TYPE_Q6_K, mmq_x, mmq_y, nwarps);
+
+    // #if !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+    //     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
+    //     if (!shmem_limit_raised[id]) {
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+    //         shmem_limit_raised[id] = true;
+    //     }
+    // #endif // !(defined(GGML_USE_HIPBLAS) && defined(__HIP_PLATFORM_AMD__))
+
     if (nrows_x % mmq_y == 0) {
         const bool need_check = false;
-        mul_mat_q6_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q6_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     } else {
         const bool need_check = true;
-        mul_mat_q6_K<scalar_t, need_check><<<block_nums, block_dims, 0, stream>>>
+        mul_mat_q6_K<scalar_t, need_check><<<block_nums, block_dims, shmem, stream>>>
             (vx, vy, dst, ncols_x, nrows_x, stride_col_x, ncols_y, nrows_y, stride_row_y, nrows_dst);
     }
 }
