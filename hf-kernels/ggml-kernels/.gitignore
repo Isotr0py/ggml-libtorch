@@ -1,5 +1,5 @@
-# nix
-flake.lock
+# build results
+result
 
 # build2cmake generated files
 CMakeLists.txt
