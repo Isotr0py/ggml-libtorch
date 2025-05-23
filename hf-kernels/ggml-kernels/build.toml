@@ -12,6 +12,7 @@ cuda-capabilities = [ "6.0", "6.1", "7.0", "7.2", "7.5", "8.0", "8.6", "8.7", "8
 src = [
   "ggml/cuda_compat.h",
   "ggml/dequantize.cuh",
+  "ggml/dispatch_utils.h",
   "ggml/ggml_kernel.cu",
   "ggml/ggml-common.h",
   "ggml/mmq.cu",

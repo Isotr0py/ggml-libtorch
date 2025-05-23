@@ -1,0 +1,117 @@
+{
+  "nodes": {
+    "flake-compat": {
+      "locked": {
+        "lastModified": 1733328505,
+        "narHash": "sha256-NeCCThCEP3eCl2l/+27kNNK7QrwZB1IJCrXfrbv5oqU=",
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "rev": "ff81ac966bb2cae68946d5ed5fc4994f96d0ffec",
+        "type": "github"
+      },
+      "original": {
+        "owner": "edolstra",
+        "repo": "flake-compat",
+        "type": "github"
+      }
+    },
+    "flake-utils": {
+      "inputs": {
+        "systems": "systems"
+      },
+      "locked": {
+        "lastModified": 1731533236,
+        "narHash": "sha256-l0KFg5HjrsfsO/JpG+r7fRrqm12kzFHyUHqHCVpMMbI=",
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "rev": "11707dc2f618dd54ca8739b309ec4fc024de578b",
+        "type": "github"
+      },
+      "original": {
+        "owner": "numtide",
+        "repo": "flake-utils",
+        "type": "github"
+      }
+    },
+    "kernel-builder": {
+      "inputs": {
+        "flake-compat": "flake-compat",
+        "flake-utils": "flake-utils",
+        "nixpkgs": "nixpkgs",
+        "rocm-nix": "rocm-nix"
+      },
+      "locked": {
+        "lastModified": 1744976941,
+        "narHash": "sha256-+csrhVaT6Mj2j1FM7P2BDITvf1Xwj2AKdMm0IKZK340=",
+        "owner": "huggingface",
+        "repo": "kernel-builder",
+        "rev": "0a278c2e9aaf6003a4ec6fe35c7158624762de5a",
+        "type": "github"
+      },
+      "original": {
+        "owner": "huggingface",
+        "repo": "kernel-builder",
+        "type": "github"
+      }
+    },
+    "nixpkgs": {
+      "locked": {
+        "lastModified": 1743559129,
+        "narHash": "sha256-7gpAWsENV3tY2HmeHYQ2MoQxGpys+jQWnkS/BHAMXVk=",
+        "owner": "nixos",
+        "repo": "nixpkgs",
+        "rev": "adae22bea8bcc0aa2fd6e8732044660fb7755f5e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nixos",
+        "ref": "nixos-unstable-small",
+        "repo": "nixpkgs",
+        "type": "github"
+      }
+    },
+    "rocm-nix": {
+      "inputs": {
+        "nixpkgs": [
+          "kernel-builder",
+          "nixpkgs"
+        ]
+      },
+      "locked": {
+        "lastModified": 1743085847,
+        "narHash": "sha256-uWG29p+nhZmGRV1LffWwRGjwtPIXeu1F0YTQbXgB+GU=",
+        "owner": "huggingface",
+        "repo": "rocm-nix",
+        "rev": "245cdc9bfb4bfafa818711c5f5e0b889afe1ba39",
+        "type": "github"
+      },
+      "original": {
+        "owner": "huggingface",
+        "repo": "rocm-nix",
+        "type": "github"
+      }
+    },
+    "root": {
+      "inputs": {
+        "kernel-builder": "kernel-builder"
+      }
+    },
+    "systems": {
+      "locked": {
+        "lastModified": 1681028828,
+        "narHash": "sha256-Vy1rq5AaRuLzOxct8nz4T6wlgyUR7zLU309k9mBC768=",
+        "owner": "nix-systems",
+        "repo": "default",
+        "rev": "da67096a3b9bf56a91d16901293e51ba5b49a27e",
+        "type": "github"
+      },
+      "original": {
+        "owner": "nix-systems",
+        "repo": "default",
+        "type": "github"
+      }
+    }
+  },
+  "root": "root",
+  "version": 7
+}
