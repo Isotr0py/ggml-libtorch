@@ -1,25 +1,9 @@
-from pathlib import Path
-from typing import List
-
 import pytest
 import torch
-from gguf import GGMLQuantizationType, GGUFReader, ReaderTensor, dequantize
-from huggingface_hub import snapshot_download
+from gguf import GGMLQuantizationType, dequantize
 
 import ggml as ops
-from ..utils import seed_everything
-
-
-GGUF_SAMPLE = snapshot_download("Isotr0py/test-gguf-sample")
-
-
-def get_gguf_sample_tensors(
-    hidden_size: int, quant_type: GGMLQuantizationType
-) -> List[ReaderTensor]:
-    sample_dir = GGUF_SAMPLE
-    filename = f"Quant_{quant_type.name}_{hidden_size}.gguf"
-    sample_file = Path(sample_dir) / filename
-    return GGUFReader(sample_file).tensors
+from ..utils import seed_everything, get_gguf_sample_tensors
 
 
 DTYPES = [torch.half, torch.bfloat16, torch.float32]
