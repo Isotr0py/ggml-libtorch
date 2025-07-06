@@ -13,6 +13,33 @@
 #include "mmq.cuh"
 
 
+int64_t ggml_get_block_size(int64_t type) {
+    switch (type) {
+        case GGML_TYPE_Q4_0:    return QK4_0;
+        case GGML_TYPE_Q4_1:    return QK4_1;
+        case GGML_TYPE_Q5_0:    return QK5_0;
+        case GGML_TYPE_Q5_1:    return QK5_1;
+        case GGML_TYPE_Q8_0:    return QK8_0;
+        case GGML_TYPE_Q8_1:    return QK8_1;
+        case GGML_TYPE_Q2_K:    return QK_K;
+        case GGML_TYPE_Q3_K:    return QK_K;
+        case GGML_TYPE_Q4_K:    return QK_K;
+        case GGML_TYPE_Q5_K:    return QK_K;
+        case GGML_TYPE_Q6_K:    return QK_K;
+        case GGML_TYPE_IQ2_XXS: return QK_K;
+        case GGML_TYPE_IQ2_XS:  return QK_K;
+        case GGML_TYPE_IQ2_S:   return QK_K;
+        case GGML_TYPE_IQ3_XXS: return QK_K;
+        case GGML_TYPE_IQ3_S:   return QK_K;
+        case GGML_TYPE_IQ1_S:   return QK_K;
+        case GGML_TYPE_IQ1_M:   return QK_K;
+        case GGML_TYPE_IQ4_NL:  return QK4_NL;
+        case GGML_TYPE_IQ4_XS:  return QK_K;
+        default: return 0; // unsupported type
+    }
+}
+
+
 // Q8 gemv
 template <typename scalar_t>
 static __global__ void quantize_q8_1(const scalar_t* __restrict__ x,
@@ -85,60 +112,45 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
   VLLM_DISPATCH_FLOATING_TYPES(X.scalar_type(), "ggml_mul_mat_a8", [&] {
     quantize_row_q8_1_cuda((scalar_t*)X.data_ptr(), (void*)quant_X.data_ptr(),
                            col, batch, stream);
+
+    const int64_t stride00 = col / ggml_get_block_size(type);
     mmq_args<scalar_t> kernel_args;
     kernel_args = {
         (char*)W.data_ptr(), (char*)quant_X.data_ptr(),
-        (scalar_t*)Y.data_ptr(), col, row, col/QK4_0, padded, batch, row
+        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, row
     };
+
     switch (type) {
       case GGML_TYPE_Q4_0:
         mul_mat_q_case<scalar_t, GGML_TYPE_Q4_0>(kernel_args, stream);
         break;
-    //   case 3:
-    //     ggml_mul_mat_q4_1_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 6:
-    //     ggml_mul_mat_q5_0_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 7:
-    //     ggml_mul_mat_q5_1_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 8:
-    //     ggml_mul_mat_q8_0_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 10:
-    //     ggml_mul_mat_q2_K_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 11:
-    //     ggml_mul_mat_q3_K_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 12:
-    //     ggml_mul_mat_q4_K_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 13:
-    //     ggml_mul_mat_q5_K_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
-    //   case 14:
-    //     ggml_mul_mat_q6_K_q8_1_cuda(
-    //         (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-    //         (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-    //     break;
+      case GGML_TYPE_Q4_1:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q4_1>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q5_0:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q5_0>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q5_1:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q5_1>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q8_0:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q8_0>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q2_K:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q2_K>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q3_K:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q3_K>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q4_K:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q4_K>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q5_K:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q5_K>(kernel_args, stream);
+        break;
+      case GGML_TYPE_Q6_K:
+        mul_mat_q_case<scalar_t, GGML_TYPE_Q6_K>(kernel_args, stream);
+        break;
     }
   });
   return Y;
