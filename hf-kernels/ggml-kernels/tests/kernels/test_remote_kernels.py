@@ -1,10 +1,11 @@
 import pytest
 import torch
 from gguf import GGMLQuantizationType, dequantize
+from kernels import get_kernel
 
-import ggml as ops
-from ..utils import seed_everything, get_gguf_sample_tensors
+from ..utils import get_gguf_sample_tensors, seed_everything
 
+ops = get_kernel("Isotr0py/ggml")
 
 DTYPES = [torch.half, torch.bfloat16, torch.float32]
 # Hidden_size for testing, must match the sample file in HF repo,
@@ -123,7 +124,6 @@ def test_mmq(
         # bfloat16 tends to accumulate and can greatly inflate rtol
         # since outputs are also very close to 0
         rtols = {torch.half: 1e-1, torch.bfloat16: 1e4, torch.float: 2e1}
-        torch.testing.assert_close(output,
-                                   ref_output,
-                                   atol=atols[dtype],
-                                   rtol=rtols[dtype])
+        torch.testing.assert_close(
+            output, ref_output, atol=atols[dtype], rtol=rtols[dtype]
+        )
