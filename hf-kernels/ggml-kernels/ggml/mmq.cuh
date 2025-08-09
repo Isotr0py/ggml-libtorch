@@ -1221,10 +1221,12 @@ static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t strea
 
     if (args.ne01 % mmq_y == 0) {
         const bool need_check = false;
+        CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
         mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check><<<block_nums, block_dims, shmem, stream>>>
             (args.x, args.y, args.dst, args.ne00, args.ne01, args.stride00, args.ne10, args.ne11, args.ne0);
     } else {
         const bool need_check = true;
+        CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
         mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check><<<block_nums, block_dims, shmem, stream>>>
             (args.x, args.y, args.dst, args.ne00, args.ne01, args.stride00, args.ne10, args.ne11, args.ne0);
     }
