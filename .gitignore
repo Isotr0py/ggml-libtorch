@@ -1,3 +1,6 @@
+# Benchmark results
+benchmark_results_*.json
+
 # VSCode
 .vscode/
 

@@ -1,5 +1,7 @@
 import argparse
+import json
 import time
+from functools import cache
 
 from gguf import GGMLQuantizationType
 import torch
@@ -25,6 +27,7 @@ DTYPES_MAP = {
 }
 
 
+@cache
 def get_kernel_ops(use_remote: bool):
     if use_remote:
         from kernels import get_kernel
@@ -80,7 +83,6 @@ def main(
         return (end_time - start_time) / num_iters
 
     # Warmup.
-    print("Warming up...")
     run_benchmark = run_cuda_benchmark
     run_benchmark(num_iters=num_warmup_iters, profile=False)
 
@@ -89,7 +91,10 @@ def main(
         latency = run_benchmark(num_iters=1, profile=True)
     else:
         latency = run_benchmark(num_iters=num_iters, profile=False)
-    print(f"Kernel running time: {latency :.3f} s")
+
+    quant_name = [name for name, qtype in QUANT_TYPES_MAP.items() if qtype == quant_type][0]
+    print(f"{quant_name} Kernel running time: {latency * 1e3 :.3f} ms")
+    return latency * 1e3
 
 
 if __name__ == "__main__":
@@ -120,17 +125,23 @@ if __name__ == "__main__":
     args = parser.parse_args()
     print(args)
 
-    quant_type = QUANT_TYPES_MAP[args.quant_dtype]
     dtype = DTYPES_MAP[args.dtype]
-    main(
-        num_tokens=args.num_tokens,
-        hidden_size=args.hidden_size,
-        quant_type=quant_type,
-        dtype=dtype,
-        seed=args.seed,
-        do_profile=args.profile,
-        num_warmup_iters=args.num_warmup_iters,
-        num_iters=args.num_iters,
-        use_remote=args.use_remote,
-    )
+    result = {"Quantization": [], "Time (ms)": []}
+    for quant_name, quant_type in QUANT_TYPES_MAP.items():
+        latency = main(
+            num_tokens=args.num_tokens,
+            hidden_size=args.hidden_size,
+            quant_type=quant_type,
+            dtype=dtype,
+            seed=args.seed,
+            do_profile=args.profile,
+            num_warmup_iters=args.num_warmup_iters,
+            num_iters=args.num_iters,
+            use_remote=args.use_remote,
+        )
+        result["Quantization"].append(quant_name)
+        result["Time (ms)"].append(latency)
 
+    kernel_mode = "remote" if args.use_remote else "local"
+    with open(f"benchmark_results_{kernel_mode}_hd{args.hidden_size}xb{args.num_tokens}.json", "w") as f:
+        f.write(json.dumps(result, indent=4))
