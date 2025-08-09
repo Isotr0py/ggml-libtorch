@@ -2,6 +2,7 @@
 result
 
 # build2cmake generated files
+cmake/
 CMakeLists.txt
 pyproject.toml
 setup.py

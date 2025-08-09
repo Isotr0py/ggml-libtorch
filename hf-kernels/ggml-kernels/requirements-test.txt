@@ -3,3 +3,4 @@ numpy
 huggingface_hub
 gguf>=0.10.0
 kernels
+torch

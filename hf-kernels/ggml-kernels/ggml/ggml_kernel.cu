@@ -11,7 +11,6 @@
 #include "vecdotq.cuh"
 #include "dequantize.cuh"
 #include "mmvq.cuh"
-#include "mmq.cuh"
 
 // Q8 gemv
 template <typename scalar_t>
@@ -190,78 +189,6 @@ torch::Tensor ggml_mul_mat_vec_a8(torch::Tensor W,  // quant weight
         mul_mat_vec_iq1_m_q8_1_cuda<scalar_t>(
             (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
             (scalar_t*)Y.data_ptr(), col, row, stream);
-        break;
-    }
-  });
-  return Y;
-}
-
-torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
-                              torch::Tensor X,  // input
-                              int64_t type, int64_t row) {
-  int col = X.sizes()[1];
-  int padded = (col + 512 - 1) / 512 * 512;
-  int batch = X.sizes()[0];
-  const at::cuda::OptionalCUDAGuard device_guard(device_of(X));
-  auto options = torch::TensorOptions().dtype(X.dtype()).device(W.device());
-  at::Tensor Y = torch::empty({batch, row}, options);
-  cudaStream_t stream = at::cuda::getCurrentCUDAStream().stream();
-  options = torch::TensorOptions().dtype(torch::kInt32).device(W.device());
-  at::Tensor quant_X = torch::empty({batch, padded / 32 * 9}, options);
-  VLLM_DISPATCH_FLOATING_TYPES(X.scalar_type(), "ggml_mul_mat_a8", [&] {
-    quantize_row_q8_1_cuda((scalar_t*)X.data_ptr(), (void*)quant_X.data_ptr(),
-                           col, batch, stream);
-
-    switch (type) {
-      case 2:
-        ggml_mul_mat_q4_0_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 3:
-        ggml_mul_mat_q4_1_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 6:
-        ggml_mul_mat_q5_0_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 7:
-        ggml_mul_mat_q5_1_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 8:
-        ggml_mul_mat_q8_0_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 10:
-        ggml_mul_mat_q2_K_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 11:
-        ggml_mul_mat_q3_K_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 12:
-        ggml_mul_mat_q4_K_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 13:
-        ggml_mul_mat_q5_K_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
-        break;
-      case 14:
-        ggml_mul_mat_q6_K_q8_1_cuda(
-            (void*)W.data_ptr(), (void*)quant_X.data_ptr(),
-            (scalar_t*)Y.data_ptr(), col, row, batch, padded, row, stream);
         break;
     }
   });
