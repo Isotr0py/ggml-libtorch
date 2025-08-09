@@ -129,7 +129,7 @@ def test_mmq(
         )
 
 
-@pytest.mark.parametrize("batch_size", [2, 4, 8])
+@pytest.mark.parametrize("batch_size", BATCH_SIZES)
 @pytest.mark.parametrize("num_tokens", NUM_TOKENS)
 @pytest.mark.parametrize("hidden_size", HIDDEN_SIZES)
 @pytest.mark.parametrize("dtype", DTYPES)
