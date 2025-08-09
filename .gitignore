@@ -1,5 +1,6 @@
 # Benchmark results
 benchmark_results_*.json
+benchmark_results_*.csv
 
 # VSCode
 .vscode/

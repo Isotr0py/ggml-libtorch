@@ -3,11 +3,10 @@ import json
 import time
 from functools import cache
 
-from gguf import GGMLQuantizationType
+import pandas as pd
 import torch
-
-from utils import seed_everything, get_gguf_sample_tensors
-
+from gguf import GGMLQuantizationType
+from utils import get_gguf_sample_tensors, seed_everything
 
 QUANT_TYPES_MAP = {
     "Q2_K": GGMLQuantizationType.Q2_K,
@@ -31,6 +30,7 @@ DTYPES_MAP = {
 def get_kernel_ops(use_remote: bool):
     if use_remote:
         from kernels import get_kernel
+
         ops = get_kernel("Isotr0py/ggml")
     else:
         import ggml as ops
@@ -57,7 +57,9 @@ def main(
     x = torch.randn(num_tokens, hidden_size, dtype=dtype)
     w = [
         torch.tensor(tensor.data, device="cuda")
-        for tensor in get_gguf_sample_tensors(hidden_size=hidden_size, quant_type=quant_type)
+        for tensor in get_gguf_sample_tensors(
+            hidden_size=hidden_size, quant_type=quant_type
+        )
     ]
 
     def run_cuda_benchmark(num_iters: int, profile: bool = False) -> float:
@@ -74,7 +76,7 @@ def main(
                     quant_type,
                     tensor.size(0),
                 )
-            
+
         torch.cuda.synchronize()
 
         end_time = time.perf_counter()
@@ -92,7 +94,9 @@ def main(
     else:
         latency = run_benchmark(num_iters=num_iters, profile=False)
 
-    quant_name = [name for name, qtype in QUANT_TYPES_MAP.items() if qtype == quant_type][0]
+    quant_name = [
+        name for name, qtype in QUANT_TYPES_MAP.items() if qtype == quant_type
+    ][0]
     print(f"{quant_name} Kernel running time: {latency * 1e3 :.3f} ms")
     return latency * 1e3
 
@@ -106,10 +110,7 @@ if __name__ == "__main__":
     parser.add_argument(
         "--quant-dtype", type=str, choices=QUANT_TYPES_MAP.keys(), default="Q4_0"
     )
-    parser.add_argument(
-        "--dtype", type=str, choices=DTYPES_MAP.keys(), default="half"
-    )
-
+    parser.add_argument("--dtype", type=str, choices=DTYPES_MAP.keys(), default="half")
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--use-remote", action="store_true", help="Use remote kernels")
@@ -143,5 +144,5 @@ if __name__ == "__main__":
         result["Time (ms)"].append(latency)
 
     kernel_mode = "remote" if args.use_remote else "local"
-    with open(f"benchmark_results_{kernel_mode}_hd{args.hidden_size}xb{args.num_tokens}.json", "w") as f:
-        f.write(json.dumps(result, indent=4))
+    result_df = pd.DataFrame(result)
+    result_df.to_csv(f"benchmark_results_{kernel_mode}_HD{args.hidden_size}xB{args.num_tokens}.csv", index=False)
