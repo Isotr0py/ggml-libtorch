@@ -112,11 +112,13 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
   auto options = torch::TensorOptions().dtype(X.dtype()).device(W.device());
 
   at::Tensor Y;
-  int batch = X.numel() / col;
+  int batch;
   if (x_ndim == 2) {
+    batch = X.sizes()[0];
     Y = torch::empty({batch, row}, options);
   }
   else if (x_ndim == 3) {
+    batch = X.sizes()[0] * X.sizes()[1];
     Y = torch::empty({X.sizes()[0], X.sizes()[1], row}, options);
   }
 
