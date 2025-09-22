@@ -1,5 +1,6 @@
 [general]
 name = "ggml"
+universal = false
 
 [torch]
 src = [
@@ -8,7 +9,8 @@ src = [
 ]
 
 [kernel.ggml]
-cuda-capabilities = [ "6.0", "6.1", "7.0", "7.2", "7.5", "8.0", "8.6", "8.7", "8.9", "9.0" ]
+backend = "cuda"
+depends = [ "torch" ]
 src = [
   "ggml/cuda_compat.h",
   "ggml/dequantize.cuh",
@@ -20,4 +22,3 @@ src = [
   "ggml/mmvq.cuh",
   "ggml/vecdotq.cuh",
 ]
-depends = [ "torch" ]
