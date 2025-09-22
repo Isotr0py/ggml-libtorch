@@ -13,6 +13,7 @@ backend = "cuda"
 depends = [ "torch" ]
 src = [
   "ggml/cuda_compat.h",
+  "ggml/cuda_utils.h",
   "ggml/dequantize.cuh",
   "ggml/dispatch_utils.h",
   "ggml/ggml_kernel.cu",
