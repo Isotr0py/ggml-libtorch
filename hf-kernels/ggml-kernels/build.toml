@@ -1,23 +1,48 @@
 [general]
 name = "ggml"
+universal = false
 
 [torch]
 src = [
-  "torch-ext/torch_binding.cpp",
-  "torch-ext/torch_binding.h"
+    "torch-ext/torch_binding.cpp",
+    "torch-ext/torch_binding.h",
 ]
 
 [kernel.ggml]
-cuda-capabilities = [ "6.0", "6.1", "7.0", "7.2", "7.5", "8.0", "8.6", "8.7", "8.9", "9.0" ]
-src = [
-  "ggml/cuda_compat.h",
-  "ggml/dequantize.cuh",
-  "ggml/dispatch_utils.h",
-  "ggml/ggml_kernel.cu",
-  "ggml/ggml-common.h",
-  "ggml/mmq.cu",
-  "ggml/mmq.cuh",
-  "ggml/mmvq.cuh",
-  "ggml/vecdotq.cuh",
+backend = "cuda"
+cuda-capabilities = [
+    "6.0",
+    "6.1",
+    "7.0",
+    "7.2",
+    "7.5",
+    "8.0",
+    "8.6",
+    "8.7",
+    "8.9",
+    "9.0",
 ]
-depends = [ "torch" ]
+depends = ["torch"]
+src = [
+    "ggml/cuda_compat.h",
+    "ggml/dequantize.cuh",
+    "ggml/dispatch_utils.h",
+    "ggml/ggml_kernel.cu",
+    "ggml/ggml-common.h",
+    "ggml/mmq.cu",
+    "ggml/mmq.cuh",
+    "ggml/mmvq.cuh",
+    "ggml/vecdotq.cuh",
+    "ggml/kernel_instances/mmq_kernel_template.h",
+    "ggml/kernel_instances/mmq_kernels.h",
+    "ggml/kernel_instances/mmq_q4_0.cu",
+    "ggml/kernel_instances/mmq_q4_1.cu",
+    "ggml/kernel_instances/mmq_q5_0.cu",
+    "ggml/kernel_instances/mmq_q5_1.cu",
+    "ggml/kernel_instances/mmq_q8_0.cu",
+    "ggml/kernel_instances/mmq_q2_k.cu",
+    "ggml/kernel_instances/mmq_q3_k.cu",
+    "ggml/kernel_instances/mmq_q4_k.cu",
+    "ggml/kernel_instances/mmq_q5_k.cu",
+    "ggml/kernel_instances/mmq_q6_k.cu",
+]

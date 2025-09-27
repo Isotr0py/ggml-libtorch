@@ -30,6 +30,37 @@ int64_t get_device_attribute(int64_t attribute, int64_t device_id);
 
 int64_t get_max_shared_memory_per_block_device_attribute(int64_t device_id);
 
+struct cuda_device_info {
+    int     cc;                 // compute capability
+    int     nsm;                // number of streaming multiprocessors
+    size_t  smpb;               // max. shared memory per block
+    size_t  smpbo;              // max. shared memory per block (with opt-in)
+    bool    vmm;                // virtual memory support
+    size_t  vmm_granularity;    // granularity of virtual memory
+    size_t  total_vram;
+};
+
+cuda_device_info get_cuda_info() {
+    int id;
+    // CUDA_CHECK(cudaGetDevice(&id));
+    cudaGetDevice(&id);
+
+    cudaDeviceProp prop;
+    // CUDA_CHECK(cudaGetDeviceProperties(&prop, id));
+    cudaGetDeviceProperties(&prop, id);
+
+    cuda_device_info info;
+    info.cc = prop.major*100 + prop.minor * 10;
+    info.nsm = prop.multiProcessorCount;
+    info.smpb = prop.sharedMemPerBlock;
+    info.smpbo = prop.sharedMemPerBlockOptin;
+    info.vmm = prop.managedMemory;
+    info.vmm_granularity = prop.managedMemory ? prop.managedMemory : 0;
+    info.total_vram = prop.totalGlobalMem;
+
+    return info;
+}
+
 namespace cuda_utils {
 
 template <typename T>

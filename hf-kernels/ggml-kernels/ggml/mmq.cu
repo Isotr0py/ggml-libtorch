@@ -13,6 +13,9 @@
 #include "vecdotq.cuh"
 #include "mmq.cuh"
 
+// Include declarations for separated kernel functions
+#include "kernel_instances/mmq_kernels.h"
+
 
 int64_t ggml_get_block_size(int64_t type) {
     switch (type) {
@@ -138,34 +141,34 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
 
     switch (type) {
       case GGML_TYPE_Q4_0:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q4_0>(kernel_args, stream);
+        mul_mat_q_case_Q4_0<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q4_1:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q4_1>(kernel_args, stream);
+        mul_mat_q_case_Q4_1<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q5_0:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q5_0>(kernel_args, stream);
+        mul_mat_q_case_Q5_0<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q5_1:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q5_1>(kernel_args, stream);
+        mul_mat_q_case_Q5_1<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q8_0:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q8_0>(kernel_args, stream);
+        mul_mat_q_case_Q8_0<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q2_K:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q2_K>(kernel_args, stream);
+        mul_mat_q_case_Q2_K<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q3_K:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q3_K>(kernel_args, stream);
+        mul_mat_q_case_Q3_K<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q4_K:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q4_K>(kernel_args, stream);
+        mul_mat_q_case_Q4_K<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q5_K:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q5_K>(kernel_args, stream);
+        mul_mat_q_case_Q5_K<scalar_t>(kernel_args, stream);
         break;
       case GGML_TYPE_Q6_K:
-        mul_mat_q_case<scalar_t, GGML_TYPE_Q6_K>(kernel_args, stream);
+        mul_mat_q_case_Q6_K<scalar_t>(kernel_args, stream);
         break;
     }
   });
