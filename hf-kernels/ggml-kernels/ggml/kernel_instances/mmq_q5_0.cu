@@ -1,7 +1,5 @@
 #include "mmq_kernel_template.h"
 
-// Implement mul_mat_q_case for Q5_0
-IMPLEMENT_MUL_MAT_Q_CASE(Q5_0)
-
-// Explicit template instantiations
-INSTANTIATE_MUL_MAT_Q_CASE(Q5_0)
+DECL_MMQ_CASE(float, GGML_TYPE_Q5_0);
+DECL_MMQ_CASE(half, GGML_TYPE_Q5_0);
+DECL_MMQ_CASE(nv_bfloat16, GGML_TYPE_Q5_0);

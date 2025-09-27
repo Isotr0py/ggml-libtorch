@@ -34,7 +34,6 @@ src = [
     "ggml/mmvq.cuh",
     "ggml/vecdotq.cuh",
     "ggml/kernel_instances/mmq_kernel_template.h",
-    "ggml/kernel_instances/mmq_kernels.h",
     "ggml/kernel_instances/mmq_q4_0.cu",
     "ggml/kernel_instances/mmq_q4_1.cu",
     "ggml/kernel_instances/mmq_q5_0.cu",
