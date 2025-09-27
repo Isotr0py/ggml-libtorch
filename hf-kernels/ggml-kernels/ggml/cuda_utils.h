@@ -40,26 +40,7 @@ struct cuda_device_info {
     size_t  total_vram;
 };
 
-cuda_device_info get_cuda_info() {
-    int id;
-    // CUDA_CHECK(cudaGetDevice(&id));
-    cudaGetDevice(&id);
-
-    cudaDeviceProp prop;
-    // CUDA_CHECK(cudaGetDeviceProperties(&prop, id));
-    cudaGetDeviceProperties(&prop, id);
-
-    cuda_device_info info;
-    info.cc = prop.major*100 + prop.minor * 10;
-    info.nsm = prop.multiProcessorCount;
-    info.smpb = prop.sharedMemPerBlock;
-    info.smpbo = prop.sharedMemPerBlockOptin;
-    info.vmm = prop.managedMemory;
-    info.vmm_granularity = prop.managedMemory ? prop.managedMemory : 0;
-    info.total_vram = prop.totalGlobalMem;
-
-    return info;
-}
+cuda_device_info get_cuda_info();
 
 namespace cuda_utils {
 
