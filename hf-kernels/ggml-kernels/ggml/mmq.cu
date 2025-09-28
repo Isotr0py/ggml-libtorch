@@ -147,8 +147,8 @@ void quantize_mmq_q8_1_cuda(
     const int channels = 1;
 
     const int64_t block_num_x = (kx0_padded + CUDA_QUANTIZE_BLOCK_SIZE - 1) / CUDA_QUANTIZE_BLOCK_SIZE;
-    const dim3 num_blocks(block_num_x, kx1);
-    const dim3 block_size(CUDA_QUANTIZE_BLOCK_SIZE, 1, channels);
+    const dim3 num_blocks(block_num_x, kx1, channels);
+    const dim3 block_size(CUDA_QUANTIZE_BLOCK_SIZE, 1, 1);
     if (mmq_need_sum(type_x)) {
         quantize_mmq_q8_1<scalar_t, true><<<num_blocks, block_size, 0, stream>>>(x, vy, kx0, kx1, kx0_padded);
     } else {
