@@ -15,6 +15,8 @@ Use `build2cmake` to generate the CMake/Python project for this kernel as follow
 
 ```bash
 build2cmake generate-torch build.toml -f
+# generate MMQ kernel instances from template
+python ggml/kernel_instances/generate_mmq.py
 ```
 
 Set the environment variable `CUDA_HOME` to the installation path of CUDA Toolkit, and make sure that the nvcc compiler is in your `PATH`, e.g.:
