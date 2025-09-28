@@ -1233,13 +1233,13 @@ extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q5_K);
 extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q6_K);
 
 // bf16 kernel
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q4_0);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q4_1);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q5_0);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q5_1);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q8_0);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q2_K);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q3_K);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q4_K);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q5_K);
-extern DECL_MMQ_CASE(__nv_bfloat16, GGML_TYPE_Q6_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q4_0);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q4_1);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q5_0);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q5_1);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q8_0);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q2_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q3_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q4_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q5_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q6_K);
