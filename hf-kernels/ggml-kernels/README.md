@@ -37,5 +37,10 @@ nix develop -L --extra-experimental-features nix-command --extra-experimental-fe
 pytest tests
 ```
 
+## Run a full build for kernels (for release)
+```bash
+nix run .#build-and-copy  --extra-experimental-features nix-command --extra-experimental-features flakes --max-jobs 8 -j 8 -L
+```
+
 ## Use kernel from hf_hub
 - :construction: Under pushing to hf_hub :construction:
