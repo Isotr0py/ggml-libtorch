@@ -33,7 +33,7 @@ src = [
     "ggml/mmq.cuh",
     "ggml/mmvq.cuh",
     "ggml/vecdotq.cuh",
-    "ggml/kernel_instances/mmq_kernel_template.h",
+    "ggml/kernel_instances/mmq_kernel.cuh",
     # MMQ kernels
     "ggml/kernel_instances/mmq_q4_0_fp32.cu",
     "ggml/kernel_instances/mmq_q4_0_fp16.cu",
