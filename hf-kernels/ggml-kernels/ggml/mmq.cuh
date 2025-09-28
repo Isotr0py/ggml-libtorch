@@ -1,3 +1,5 @@
+#pragma once
+
 static int get_mmq_x_max_host(const int cc) {
     return cc >= 700 && cc < 1000000 ? 128 : 64;
 }
@@ -1163,38 +1165,6 @@ struct mmq_args {
     int64_t ne0;
 };
 
-struct cuda_device_info {
-    int     cc;                 // compute capability
-    int     nsm;                // number of streaming multiprocessors
-    size_t  smpb;               // max. shared memory per block
-    size_t  smpbo;              // max. shared memory per block (with opt-in)
-    bool    vmm;                // virtual memory support
-    size_t  vmm_granularity;    // granularity of virtual memory
-    size_t  total_vram;
-};
-
-
-cuda_device_info get_cuda_info() {
-    int id;
-    // CUDA_CHECK(cudaGetDevice(&id));
-    cudaGetDevice(&id);
-
-    cudaDeviceProp prop;
-    // CUDA_CHECK(cudaGetDeviceProperties(&prop, id));
-    cudaGetDeviceProperties(&prop, id);
-
-    cuda_device_info info;
-    info.cc = prop.major*100 + prop.minor * 10;
-    info.nsm = prop.multiProcessorCount;
-    info.smpb = prop.sharedMemPerBlock;
-    info.smpbo = prop.sharedMemPerBlockOptin;
-    info.vmm = prop.managedMemory;
-    info.vmm_granularity = prop.managedMemory ? prop.managedMemory : 0;
-    info.total_vram = prop.totalGlobalMem;
-
-    return info;
-}
-
 template <typename scalar_t, ggml_type type, int mmq_x, int nwarps>
 static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t stream) {
     const int cc = get_cuda_info().cc;
@@ -1233,78 +1203,43 @@ static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t strea
 }
 
 template <typename scalar_t, ggml_type type>
-void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream) {
-    const int nsm = get_cuda_info().nsm;
-    const int cc  = get_cuda_info().cc;
+void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream);
 
-    const int mmq_x_max = get_mmq_x_max_host(cc);
-    const int mmq_y = get_mmq_y_host(cc, mmq_x_max);
-    const int block_num_y = (args.ne01 + mmq_y - 1) / mmq_y;
+#define DECL_MMQ_CASE(scalar, type) \
+    template void mul_mat_q_case<scalar, type>(const mmq_args<scalar> & args, cudaStream_t stream)
 
-    int mmq_x_best  = 0;
-    int nwaves_best = INT_MAX;
+// fp32 kernel
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q4_0);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q4_1);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q5_0);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q5_1);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q8_0);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q2_K);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q3_K);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q4_K);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q5_K);
+extern DECL_MMQ_CASE(float, GGML_TYPE_Q6_K);
 
-    for (int mmq_x = 8; mmq_x <= mmq_x_max && nwaves_best > 1; mmq_x += 8) {
-        const int block_num_x = (args.ne11 + mmq_x - 1) / mmq_x;
-        const int nwaves = (block_num_x*block_num_y + nsm - 1) / nsm;
+// fp16 kernel
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q4_0);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q4_1);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q5_0);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q5_1);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q8_0);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q2_K);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q3_K);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q4_K);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q5_K);
+extern DECL_MMQ_CASE(c10::Half, GGML_TYPE_Q6_K);
 
-        if (nwaves < nwaves_best) {
-            mmq_x_best  = mmq_x;
-            nwaves_best = nwaves;
-        }
-    }
-
-    switch (mmq_x_best) {
-        case   8:
-            launch_mul_mat_q<scalar_t, type,   8, 4>(args, stream);
-            break;
-        case  16:
-            launch_mul_mat_q<scalar_t, type,  16, 8>(args, stream);
-            break;
-        case  24:
-            launch_mul_mat_q<scalar_t, type,  24, 8>(args, stream);
-            break;
-        case  32:
-            launch_mul_mat_q<scalar_t, type,  32, 8>(args, stream);
-            break;
-        case  40:
-            launch_mul_mat_q<scalar_t, type,  40, 8>(args, stream);
-            break;
-        case  48:
-            launch_mul_mat_q<scalar_t, type,  48, 8>(args, stream);
-            break;
-        case  56:
-            launch_mul_mat_q<scalar_t, type,  56, 8>(args, stream);
-            break;
-        case  64:
-            launch_mul_mat_q<scalar_t, type,  64, 8>(args, stream);
-            break;
-        case  72:
-            launch_mul_mat_q<scalar_t, type,  72, 8>(args, stream);
-            break;
-        case  80:
-            launch_mul_mat_q<scalar_t, type,  80, 8>(args, stream);
-            break;
-        case  88:
-            launch_mul_mat_q<scalar_t, type,  88, 8>(args, stream);
-            break;
-        case  96:
-            launch_mul_mat_q<scalar_t, type,  96, 8>(args, stream);
-            break;
-        case 104:
-            launch_mul_mat_q<scalar_t, type, 104, 8>(args, stream);
-            break;
-        case 112:
-            launch_mul_mat_q<scalar_t, type, 112, 8>(args, stream);
-            break;
-        case 120:
-            launch_mul_mat_q<scalar_t, type, 120, 8>(args, stream);
-            break;
-        case 128:
-            launch_mul_mat_q<scalar_t, type, 128, 8>(args, stream);
-            break;
-        default:
-            assert(false);
-            break;
-    }
-}
+// bf16 kernel
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q4_0);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q4_1);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q5_0);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q5_1);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q8_0);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q2_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q3_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q4_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q5_K);
+extern DECL_MMQ_CASE(c10::BFloat16, GGML_TYPE_Q6_K);

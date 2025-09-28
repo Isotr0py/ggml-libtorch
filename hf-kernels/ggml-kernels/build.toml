@@ -4,22 +4,53 @@ universal = false
 
 [torch]
 src = [
-  "torch-ext/torch_binding.cpp",
-  "torch-ext/torch_binding.h"
+    "torch-ext/torch_binding.cpp",
+    "torch-ext/torch_binding.h",
 ]
 
 [kernel.ggml]
 backend = "cuda"
-depends = [ "torch" ]
+depends = ["torch"]
 src = [
-  "ggml/cuda_compat.h",
-  "ggml/cuda_utils.h",
-  "ggml/dequantize.cuh",
-  "ggml/dispatch_utils.h",
-  "ggml/ggml_kernel.cu",
-  "ggml/ggml-common.h",
-  "ggml/mmq.cu",
-  "ggml/mmq.cuh",
-  "ggml/mmvq.cuh",
-  "ggml/vecdotq.cuh",
+    "ggml/cuda_compat.h",
+    "ggml/dequantize.cuh",
+    "ggml/dispatch_utils.h",
+    "ggml/ggml_kernel.cu",
+    "ggml/ggml-common.h",
+    "ggml/mmq.cu",
+    "ggml/mmq.cuh",
+    "ggml/mmvq.cuh",
+    "ggml/vecdotq.cuh",
+    "ggml/kernel_instances/mmq_kernel.cuh",
+    # MMQ kernels
+    "ggml/kernel_instances/mmq_q4_0_fp32.cu",
+    "ggml/kernel_instances/mmq_q4_0_fp16.cu",
+    "ggml/kernel_instances/mmq_q4_0_bf16.cu",
+    "ggml/kernel_instances/mmq_q4_1_fp32.cu",
+    "ggml/kernel_instances/mmq_q4_1_fp16.cu",
+    "ggml/kernel_instances/mmq_q4_1_bf16.cu",
+    "ggml/kernel_instances/mmq_q5_0_fp32.cu",
+    "ggml/kernel_instances/mmq_q5_0_fp16.cu",
+    "ggml/kernel_instances/mmq_q5_0_bf16.cu",
+    "ggml/kernel_instances/mmq_q5_1_fp32.cu",
+    "ggml/kernel_instances/mmq_q5_1_fp16.cu",
+    "ggml/kernel_instances/mmq_q5_1_bf16.cu",
+    "ggml/kernel_instances/mmq_q8_0_fp32.cu",
+    "ggml/kernel_instances/mmq_q8_0_fp16.cu",
+    "ggml/kernel_instances/mmq_q8_0_bf16.cu",
+    "ggml/kernel_instances/mmq_q2_k_fp32.cu",
+    "ggml/kernel_instances/mmq_q2_k_fp16.cu",
+    "ggml/kernel_instances/mmq_q2_k_bf16.cu",
+    "ggml/kernel_instances/mmq_q3_k_fp32.cu",
+    "ggml/kernel_instances/mmq_q3_k_fp16.cu",
+    "ggml/kernel_instances/mmq_q3_k_bf16.cu",
+    "ggml/kernel_instances/mmq_q4_k_fp32.cu",
+    "ggml/kernel_instances/mmq_q4_k_fp16.cu",
+    "ggml/kernel_instances/mmq_q4_k_bf16.cu",
+    "ggml/kernel_instances/mmq_q5_k_fp32.cu",
+    "ggml/kernel_instances/mmq_q5_k_fp16.cu",
+    "ggml/kernel_instances/mmq_q5_k_bf16.cu",
+    "ggml/kernel_instances/mmq_q6_k_fp32.cu",
+    "ggml/kernel_instances/mmq_q6_k_fp16.cu",
+    "ggml/kernel_instances/mmq_q6_k_bf16.cu",
 ]
