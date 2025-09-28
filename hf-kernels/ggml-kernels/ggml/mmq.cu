@@ -155,7 +155,7 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
     mmq_args<scalar_t> kernel_args;
     kernel_args = {
         (char*)W.data_ptr(), (char*)quant_X.data_ptr(),
-        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, row
+        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, col, row
     };
 
     switch (type) {
