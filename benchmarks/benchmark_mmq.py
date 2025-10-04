@@ -27,12 +27,14 @@ DTYPES_MAP = {
 
 
 @cache
-def get_kernel_ops(use_remote: bool):
+def get_kernel_ops(use_remote: bool, revision: str = "main"):
     if use_remote:
         from kernels import get_kernel
 
-        ops = get_kernel("Isotr0py/ggml")
+        ops = get_kernel("Isotr0py/ggml", revision=revision)
+        print(f"Using remote kernels from revision: {revision}.")
     else:
+        print(f"Using local kernels.")
         import ggml as ops
     return ops
 
@@ -48,8 +50,9 @@ def main(
     num_warmup_iters: int = 5,
     num_iters: int = 100,
     use_remote: bool = False,
+    revision: str = "main",
 ) -> None:
-    ops = get_kernel_ops(use_remote)
+    ops = get_kernel_ops(use_remote, revision=revision)
 
     seed_everything(seed)
     torch.set_default_device("cuda")
@@ -114,6 +117,9 @@ if __name__ == "__main__":
     parser.add_argument("--seed", type=int, default=0)
     parser.add_argument("--profile", action="store_true")
     parser.add_argument("--use-remote", action="store_true", help="Use remote kernels")
+    parser.add_argument(
+        "--revision", type=str, default="main", help="The branch, tag or commit to use for remote kernel."
+    )
     parser.add_argument("--num-warmup-iters", type=int, default=5)
     parser.add_argument(
         "--num-iters",
@@ -139,6 +145,7 @@ if __name__ == "__main__":
             num_warmup_iters=args.num_warmup_iters,
             num_iters=args.num_iters,
             use_remote=args.use_remote,
+            revision=args.revision,
         )
         result["Quantization"].append(quant_name)
         result["Time (ms)"].append(latency)

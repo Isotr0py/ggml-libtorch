@@ -134,22 +134,23 @@ def test_mmq(
 @pytest.mark.parametrize("hidden_size", HIDDEN_SIZES)
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize(
-    "quant_type",
+    "quant_type, name",
     [
         # k-quants
-        GGMLQuantizationType.Q2_K,
-        GGMLQuantizationType.Q3_K,
-        GGMLQuantizationType.Q4_K,
-        GGMLQuantizationType.Q5_K,
-        GGMLQuantizationType.Q6_K,
+        (GGMLQuantizationType.Q2_K, "Q2_K"),
+        (GGMLQuantizationType.Q3_K, "Q3_K"),
+        (GGMLQuantizationType.Q4_K, "Q4_K"),
+        (GGMLQuantizationType.Q5_K, "Q5_K"),
+        (GGMLQuantizationType.Q6_K, "Q6_K"),
         # standard quants
-        GGMLQuantizationType.Q4_0,
-        GGMLQuantizationType.Q5_0,
-        GGMLQuantizationType.Q8_0,
+        (GGMLQuantizationType.Q4_0, "Q4_0"),
+        (GGMLQuantizationType.Q5_0, "Q5_0"),
+        (GGMLQuantizationType.Q8_0, "Q8_0"),
     ],
 )
 @torch.inference_mode()
 def test_mmq_batching(
+    name: str,
     batch_size: int,
     num_tokens: int,
     hidden_size: int,
@@ -159,7 +160,7 @@ def test_mmq_batching(
     seed_everything(0)
 
     tensors = get_gguf_sample_tensors(hidden_size, quant_type)
-    x = torch.rand((batch_size, num_tokens, hidden_size), dtype=dtype, device="cuda") * 1e-1
+    x = torch.rand((batch_size, num_tokens, hidden_size), dtype=dtype, device="cuda")
     for tensor in tensors:
         weight = torch.tensor(dequantize(tensor.data, quant_type), device="cuda").to(
             dtype
@@ -169,7 +170,7 @@ def test_mmq_batching(
         qweight = torch.tensor(tensor.data, device="cuda")
         output = ops.ggml_mul_mat_a8(qweight, x, quant_type, qweight.shape[0]).to(dtype)
 
-        atols = {torch.half: 1.2e-1, torch.bfloat16: 1.5, torch.float: 1.2e-1}
+        atols = {torch.half: 1, torch.bfloat16: 2, torch.float: 1}
         # test matrix has inputs centered around 0 and lower precision from
         # bfloat16 tends to accumulate and can greatly inflate rtol
         # since outputs are also very close to 0

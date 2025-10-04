@@ -1124,6 +1124,7 @@ static __device__ __forceinline__ uint32_t __vsub4(const uint32_t a, const uint3
 
 
 #define GGML_UNUSED(x) (void)(x)
+#define GGML_PAD(x, n) (((x) + (n) - 1) & ~((n) - 1))
 enum ggml_type {
     GGML_TYPE_F32     = 0,
     GGML_TYPE_F16     = 1,
