@@ -14,6 +14,9 @@
 #include "mmq.cuh"
 
 
+#define MATRIX_ROW_PADDING 512 // last row of quant. matrices is a multiple of this to avoid out-of-bounds memory accesses
+
+
 cuda_device_info get_cuda_info() {
     int id;
     // CUDA_CHECK(cudaGetDevice(&id));
@@ -143,7 +146,9 @@ void quantize_mmq_q8_1_cuda(
   
     // different from original ggml implementation, kx_padded
     // and channels is computed inside the function here
-    const int64_t kx0_padded = (kx0 + 512 - 1) / 512 * 512;
+    // const int64_t kx0_padded = (kx0 + 512 + 1) / 512 * 512;
+    int64_t kx0_padded = MATRIX_ROW_PADDING == 0 ?
+        kx0 : kx0 - kx0 % MATRIX_ROW_PADDING + MATRIX_ROW_PADDING;
     const int channels = 1;
 
     const int64_t block_num_x = (kx0_padded + CUDA_QUANTIZE_BLOCK_SIZE - 1) / CUDA_QUANTIZE_BLOCK_SIZE;
@@ -166,7 +171,9 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
       "X must have shape [num_tokens, hidden_size] or [batch_size, num_tokens, hidden_size]");
 
   int col = X.sizes()[x_ndim - 1];
-  int padded = (col + 512 - 1) / 512 * 512;
+  // int padded = (col + 512 + 1) / 512 * 512;
+  int padded = MATRIX_ROW_PADDING == 0 ?
+        col : col - col % MATRIX_ROW_PADDING + MATRIX_ROW_PADDING;
   const at::cuda::OptionalCUDAGuard device_guard(device_of(X));
   auto options = torch::TensorOptions().dtype(X.dtype()).device(W.device());
 
@@ -189,10 +196,11 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
                            col, batch, type, stream);
 
     const int64_t stride00 = col / ggml_get_block_size(type);
+    const int64_t stride11 = batch;
     mmq_args<scalar_t> kernel_args;
     kernel_args = {
         (char*)W.data_ptr(), (char*)quant_X.data_ptr(),
-        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, batch, row
+        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, stride11, row
     };
 
     switch (type) {

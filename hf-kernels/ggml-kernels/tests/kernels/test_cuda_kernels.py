@@ -178,3 +178,7 @@ def test_mmq_batching(
         torch.testing.assert_close(
             output, ref_output, atol=atols[dtype], rtol=rtols[dtype]
         )
+    # FIXME: X will cause nan values in full test suite, need to investigate
+    del x
+    torch.cuda.empty_cache()
+
