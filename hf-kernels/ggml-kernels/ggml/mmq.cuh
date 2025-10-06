@@ -8,7 +8,7 @@
 #define VDR_Q4_1_Q8_1_MMQ  4
 #define VDR_Q5_0_Q8_1_MMQ  4
 #define VDR_Q5_1_Q8_1_MMQ  4
-#define VDR_Q8_0_Q8_1_MMQ 8
+#define VDR_Q8_0_Q8_1_MMQ  8
 #define VDR_Q2_K_Q8_1_MMQ  2
 #define VDR_Q3_K_Q8_1_MMQ  2
 #define VDR_Q4_K_Q8_1_MMQ  8
@@ -169,7 +169,8 @@ typedef void (*load_tiles_mmq_t)(
 typedef void (*vec_dot_mmq_t)(
     const int * __restrict__ x_ql, const half2 * __restrict__ x_dm, const int * __restrict__ x_qh, const int * __restrict__ x_sc,
     const int * __restrict__ y, float * __restrict__ sum, const int & k0);
-typedef void (*mmq_write_back_t)(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1);
+template <typename scalar_t>
+using mmq_write_back_t = void (*)(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1);
 
 struct block_q8_1_mmq {
     half2  ds[4];
@@ -1463,8 +1464,8 @@ static __device__ __forceinline__ void vec_dot_q6_K_q8_1_mul_mat(
 
 // MMQ write back
 // -------------------------------------------------------------------------------------------------------------------------------------
-template<int mmq_x, int mmq_y, int nwarps, bool need_check>
-static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1) {
+template<typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1) {
 #pragma unroll
     for (int j0 = 0; j0 < mmq_x; j0 += nwarps) {
         const int j = blockIdx.y*mmq_x + j0 + threadIdx.y;
@@ -1486,8 +1487,8 @@ static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restr
     }
 }
 
-template<int mmq_x, int mmq_y, int nwarps, bool need_check>
-static __device__ __forceinline__ void mmq_write_back_mma(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1) {
+template<typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+static __device__ __forceinline__ void mmq_write_back_mma(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1) {
     typedef mma_int_C_I16J8 mma_C;
 
     const int i0 = threadIdx.y*mma_C::I;
@@ -1516,107 +1517,112 @@ static __device__ __forceinline__ void mmq_write_back_mma(const float * __restri
 
 // -------------------------------------------------------------------------------------------------------------------------------------
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check, ggml_type type>
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check, ggml_type type>
 struct mmq_type_traits;
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_0> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_0> {
     static constexpr int              vdr        = VDR_Q4_0_Q8_1_MMQ;
+    static constexpr load_tiles_mmq_t load_tiles = load_tiles_q4_0<mmq_y, nwarps, need_check>;
 #ifdef INT8_MMA_AVAILABLE
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q4_0_q8_1_mma<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_mma<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_mma<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #else
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q4_0_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #endif // INT8_MMA_AVAILABLE
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_1> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_1> {
     static constexpr int              vdr        = VDR_Q4_1_Q8_1_MMQ;
+    static constexpr load_tiles_mmq_t load_tiles = load_tiles_q4_1<mmq_y, nwarps, need_check>;
 #ifdef INT8_MMA_AVAILABLE
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q4_1_q8_1_mma<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_mma<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_mma<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #else
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q4_1_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #endif // INT8_MMA_AVAILABLE
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_0> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_0> {
     static constexpr int              vdr        = VDR_Q5_0_Q8_1_MMQ;
+    static constexpr load_tiles_mmq_t load_tiles = load_tiles_q5_0<mmq_y, nwarps, need_check>;
 #ifdef INT8_MMA_AVAILABLE
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q5_0_q8_1_mma<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_mma<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_mma<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #else
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q5_0_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #endif // INT8_MMA_AVAILABLE
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_1> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_1> {
     static constexpr int              vdr        = VDR_Q5_1_Q8_1_MMQ;
+    static constexpr load_tiles_mmq_t load_tiles = load_tiles_q5_1<mmq_y, nwarps, need_check>;
 #ifdef INT8_MMA_AVAILABLE
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q5_1_q8_1_mma<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_mma<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_mma<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #else
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q5_1_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #endif // INT8_MMA_AVAILABLE
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q8_0> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q8_0> {
     static constexpr int              vdr        = VDR_Q8_0_Q8_1_MMQ;
+    static constexpr load_tiles_mmq_t load_tiles = load_tiles_q8_0<mmq_y, nwarps, need_check>;
 #ifdef INT8_MMA_AVAILABLE
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q8_0_q8_1_mma<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_mma<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_mma<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #else
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q8_0_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #endif // INT8_MMA_AVAILABLE
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q2_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q2_K> {
     static constexpr int              vdr        = VDR_Q2_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles = load_tiles_q2_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q2_K_q8_1_mul_mat<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q3_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q3_K> {
     static constexpr int              vdr        = VDR_Q3_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles = load_tiles_q3_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q3_K_q8_1_mul_mat<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_K> {
     static constexpr int              vdr        = VDR_Q4_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles = load_tiles_q4_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q4_K_q8_1_mul_mat<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_K> {
     static constexpr int              vdr        = VDR_Q5_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles = load_tiles_q5_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q5_K_q8_1_mul_mat<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q6_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q6_K> {
     static constexpr int              vdr        = VDR_Q6_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles = load_tiles_q6_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q6_K_q8_1_mul_mat<mmq_x, mmq_y, nwarps>;
-    static constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    static constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 };
 
 template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
@@ -1637,10 +1643,10 @@ static __global__ void mul_mat_q(
     constexpr int              qr         = ggml_cuda_type_traits<type>::qr;
     constexpr int              qi         = ggml_cuda_type_traits<type>::qi;
     constexpr int              mmq_y      = get_mmq_y_device(mmq_x);
-    constexpr int              vdr        = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::vdr;
-    constexpr load_tiles_mmq_t load_tiles = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::load_tiles;
-    constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::vec_dot;
-    constexpr mmq_write_back_t write_back = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::write_back;
+    constexpr int              vdr        = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::vdr;
+    constexpr load_tiles_mmq_t load_tiles = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::load_tiles;
+    constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::vec_dot;
+    constexpr mmq_write_back_t<scalar_t> write_back = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::write_back;
 
     constexpr tile_x_sizes txs = get_tile_x_sizes_device<mmq_y>(type);
 
