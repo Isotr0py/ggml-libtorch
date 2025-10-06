@@ -1213,7 +1213,7 @@ struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q6_K> {
     static constexpr vec_dot_mmq_t    vec_dot    = vec_dot_q6_K_q8_1_mul_mat<mmq_x, mmq_y, nwarps>;
 };
 
-template <typename sclar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
+template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
 #if defined(USE_ROCM)
 __launch_bounds__(WARP_SIZE*nwarps, 2)
 #else
@@ -1224,7 +1224,7 @@ __launch_bounds__(WARP_SIZE*nwarps, 2)
 #endif // __CUDA_ARCH__ >= 700
 #endif // defined(USE_ROCM)
 static __global__ void mul_mat_q(
-    const char * __restrict__ x, const char * __restrict__ yc, sclar_t * __restrict__ dst,
+    const char * __restrict__ x, const char * __restrict__ yc, scalar_t * __restrict__ dst,
     const int ne00, const int ne01, const int stride01, const int ne10, const int ne11, const int stride11, const int ne0) {
 
     constexpr int              qk         = ggml_cuda_type_traits<type>::qk;
@@ -1302,9 +1302,9 @@ static __global__ void mul_mat_q(
     }
 }
 
-template <typename sclar_t>
+template <typename scalar_t>
 struct mmq_args {
-    const char * x; const char * y; sclar_t * dst;
+    const char * x; const char * y; scalar_t * dst;
     int64_t ne00; int64_t ne01; int64_t stride01;
     int64_t ne10; int64_t ne11; int64_t stride11;
     int64_t ne0;
