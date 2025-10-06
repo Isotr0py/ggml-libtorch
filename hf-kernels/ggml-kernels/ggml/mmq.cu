@@ -14,6 +14,9 @@
 #include "mmq.cuh"
 
 
+#define MATRIX_ROW_PADDING 512 // last row of quant. matrices is a multiple of this to avoid out-of-bounds memory accesses
+
+
 cuda_device_info get_cuda_info() {
     int id;
     // CUDA_CHECK(cudaGetDevice(&id));
@@ -63,60 +66,99 @@ int64_t ggml_get_block_size(int64_t type) {
 }
 
 
-// Q8 gemv
-template <typename scalar_t>
-static __global__ void quantize_q8_1(const scalar_t* __restrict__ x,
-                                     void* __restrict__ vy, const int kx,
-                                     const int kx_padded) {
-  const int ix = blockDim.x * blockIdx.x + threadIdx.x;
-  if (ix >= kx_padded) {
-    return;
-  }
-  const int iy = blockDim.y * blockIdx.y + threadIdx.y;
-  const int i_padded = iy * kx_padded + ix;
-
-  block_q8_1* y = (block_q8_1*)vy;
-
-  const int ib = i_padded / QK8_1;   // block index
-  const int iqs = i_padded % QK8_1;  // quant index
-
-  const float xi = ix < kx ? static_cast<float>(x[iy * kx + ix]) : 0.0f;
-  float amax = fabsf(xi);
-  float sum = xi;
-
-#pragma unroll
-  for (int mask = 16; mask > 0; mask >>= 1) {
-    amax = fmaxf(amax, VLLM_SHFL_XOR_SYNC_WIDTH(amax, mask, 32));
-    sum += VLLM_SHFL_XOR_SYNC_WIDTH(sum, mask, 32);
-  }
-
-  const float d = amax / 127;
-  const int8_t q = amax == 0.0f ? 0 : roundf(xi / d);
-
-  y[ib].qs[iqs] = q;
-
-  if (iqs > 0) {
-    return;
-  }
-
-  y[ib].ds.x = __float2half(d);
-  y[ib].ds.y = __float2half(sum);
+static int mmq_need_sum(int64_t type_x) {
+    switch (type_x) {
+        case GGML_TYPE_Q4_0:
+        case GGML_TYPE_Q4_1:
+            return true;
+        case GGML_TYPE_Q5_0:
+            return false;
+        case GGML_TYPE_Q5_1:
+            return true;
+        case GGML_TYPE_Q8_0:
+        case GGML_TYPE_Q2_K:
+        case GGML_TYPE_Q3_K:
+            return false;
+        case GGML_TYPE_Q4_K:
+        case GGML_TYPE_Q5_K:
+            return true;
+        case GGML_TYPE_Q6_K:
+            return false;
+        default:
+            break;
+    }
+    return false;
 }
 
+
+template <typename scalar_t, bool need_sum>
+static __global__ void quantize_mmq_q8_1(
+    const scalar_t * __restrict__ x, void * __restrict__ vy, const int64_t kx0, const int64_t kx1, const int64_t kx0_padded) {
+
+    const int64_t ix0 = (int64_t)blockDim.x*blockIdx.x + threadIdx.x;
+
+    if (ix0 >= kx0_padded) {
+        return;
+    }
+
+    const int64_t ix1 = kx1*blockIdx.z + blockIdx.y;
+
+    block_q8_1_mmq * y = (block_q8_1_mmq *) vy;
+
+    const int64_t ib0 = blockIdx.z*(gridDim.y*gridDim.x*blockDim.x/(4*QK8_1)); // first block of channel
+    const int64_t ib  = ib0 + (ix0 / (4*QK8_1))*kx1 + blockIdx.y;              // block index in channel
+    const int64_t iqs = ix0 % (4*QK8_1);                                       // quant index in block
+
+    const float xi = ix0 < kx0 ? static_cast<float>(x[ix1*kx0 + ix0]) : 0.0f;
+    float amax = fabsf(xi);
+
+    float sum = xi;
+
+  #pragma unroll
+    for (int mask = 16; mask > 0; mask >>= 1) {
+      amax = fmaxf(amax, VLLM_SHFL_XOR_SYNC_WIDTH(amax, mask, 32));
+      if (need_sum) {
+        sum += VLLM_SHFL_XOR_SYNC_WIDTH(sum, mask, 32);
+      }
+    }
+
+    const float d = amax / 127;
+    const int8_t q = amax == 0.0f ? 0 : roundf(xi / d);
+
+    y[ib].qs[iqs] = q;
+
+    if (iqs % QK8_1 != 0) {
+        return;
+    }
+
+    if (need_sum) {
+        y[ib].ds[iqs/QK8_1] = make_half2(d, sum);
+    } else {
+        ((float *) y[ib].ds)[iqs/QK8_1] = d;
+    }
+}
+
+
 template <typename scalar_t>
-static void quantize_row_q8_1_cuda(const scalar_t* x, void* vy, const int kx,
-                                   const int ky, cudaStream_t stream) {
-  const int64_t kx_padded = (kx + 512 - 1) / 512 * 512;
-  const int block_num_x =
-      (kx_padded + CUDA_QUANTIZE_BLOCK_SIZE - 1) / CUDA_QUANTIZE_BLOCK_SIZE;
-  constexpr int MAX_BLOCK_SIZE = 65535;
-  for (int off = 0; off < ky; off += MAX_BLOCK_SIZE) {
-    const int num_blocks_y = std::min(ky, off + MAX_BLOCK_SIZE) - off;
-    const dim3 num_blocks(block_num_x, num_blocks_y, 1);
-    const dim3 block_size(CUDA_DEQUANTIZE_BLOCK_SIZE, 1, 1);
-    quantize_q8_1<<<num_blocks, block_size, 0, stream>>>(
-        &x[off * kx], (int32_t*)vy + off * (kx_padded / 32 * 9), kx, kx_padded);
-  }
+void quantize_mmq_q8_1_cuda(
+    const scalar_t * x, void * vy, const int64_t kx0, const int64_t kx1,
+    const int64_t type_x, cudaStream_t stream) {
+  
+    // different from original ggml implementation, kx_padded
+    // and channels is computed inside the function here
+    // const int64_t kx0_padded = (kx0 + 512 + 1) / 512 * 512;
+    int64_t kx0_padded = MATRIX_ROW_PADDING == 0 ?
+        kx0 : kx0 - kx0 % MATRIX_ROW_PADDING + MATRIX_ROW_PADDING;
+    const int channels = 1;
+
+    const int64_t block_num_x = (kx0_padded + CUDA_QUANTIZE_BLOCK_SIZE - 1) / CUDA_QUANTIZE_BLOCK_SIZE;
+    const dim3 num_blocks(block_num_x, kx1, channels);
+    const dim3 block_size(CUDA_QUANTIZE_BLOCK_SIZE, 1, 1);
+    if (mmq_need_sum(type_x)) {
+        quantize_mmq_q8_1<scalar_t, true><<<num_blocks, block_size, 0, stream>>>(x, vy, kx0, kx1, kx0_padded);
+    } else {
+        quantize_mmq_q8_1<scalar_t, false><<<num_blocks, block_size, 0, stream>>>(x, vy, kx0, kx1, kx0_padded);
+    }
 }
 
 
@@ -129,7 +171,9 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
       "X must have shape [num_tokens, hidden_size] or [batch_size, num_tokens, hidden_size]");
 
   int col = X.sizes()[x_ndim - 1];
-  int padded = (col + 512 - 1) / 512 * 512;
+  // int padded = (col + 512 + 1) / 512 * 512;
+  int padded = MATRIX_ROW_PADDING == 0 ?
+        col : col - col % MATRIX_ROW_PADDING + MATRIX_ROW_PADDING;
   const at::cuda::OptionalCUDAGuard device_guard(device_of(X));
   auto options = torch::TensorOptions().dtype(X.dtype()).device(W.device());
 
@@ -148,14 +192,15 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
   options = torch::TensorOptions().dtype(torch::kInt32).device(W.device());
   at::Tensor quant_X = torch::empty({batch, padded / 32 * 9}, options);
   VLLM_DISPATCH_FLOATING_TYPES(X.scalar_type(), "ggml_mul_mat_a8", [&] {
-    quantize_row_q8_1_cuda((scalar_t*)X.data_ptr(), (void*)quant_X.data_ptr(),
-                           col, batch, stream);
+    quantize_mmq_q8_1_cuda((scalar_t*)X.data_ptr(), (void*)quant_X.data_ptr(),
+                           col, batch, type, stream);
 
     const int64_t stride00 = col / ggml_get_block_size(type);
+    const int64_t stride11 = batch;
     mmq_args<scalar_t> kernel_args;
     kernel_args = {
         (char*)W.data_ptr(), (char*)quant_X.data_ptr(),
-        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, row
+        (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, stride11, row
     };
 
     switch (type) {
