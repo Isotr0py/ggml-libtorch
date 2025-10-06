@@ -152,9 +152,10 @@ static __device__ __forceinline__ float vec_dot_q6_K_q8_1_impl_mmq(
 }
 
 // -----------------------
+#define  MMQ_MAX_BATCH_SIZE 64 // max batch size to use MMQ kernels when tensor cores are available
 
 static int get_mmq_x_max_host(const int cc) {
-    return cc >= 700 && cc < 1000000 ? 128 : 64;
+    return cc >= 700 && cc < 1000000 ? MMQ_MAX_BATCH_SIZE : 64;
 }
     
 // Round rows to this value for --split-mode row:
