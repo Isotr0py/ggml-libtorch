@@ -168,9 +168,8 @@ typedef void (*load_tiles_mmq_t)(
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride);
 typedef void (*vec_dot_mmq_t)(
     const int * __restrict__ x_ql, const half2 * __restrict__ x_dm, const int * __restrict__ x_qh, const int * __restrict__ x_sc,
-    const int * __restrict__ y_qs, const half2 * __restrict__ y_ms, float * __restrict__ sum, const int & k0);
-typedef void (*mmq_write_back_t)(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1);
     const int * __restrict__ y, float * __restrict__ sum, const int & k0);
+typedef void (*mmq_write_back_t)(const float * __restrict__ sum, float * __restrict__ dst, const int & ne0, const int & ne1);
 
 struct block_q8_1_mmq {
     half2  ds[4];
@@ -1661,8 +1660,6 @@ static __global__ void mul_mat_q(
 
     float sum[mmq_x*mmq_y / (nwarps*WARP_SIZE)] = {0.0f};
     const int * y = (const int *) yc + blockIdx.y*(mmq_x*sizeof(block_q8_1_mmq)/sizeof(int));
-
-    float sum[(mmq_x/nwarps) * (mmq_y/WARP_SIZE)] = {0.0f};
 
     for (int kb0 = 0; kb0 < blocks_per_row_x; kb0 += blocks_per_warp) {
 
