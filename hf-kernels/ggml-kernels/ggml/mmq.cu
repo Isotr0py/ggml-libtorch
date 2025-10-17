@@ -12,24 +12,43 @@
 
 #define MATRIX_ROW_PADDING 512 // last row of quant. matrices is a multiple of this to avoid out-of-bounds memory accesses
 
-
+// We use cudaDeviceGetAttribute() instead of cudaGetDeviceProperties() for faster query
+// see: https://docs.nvidia.com/cuda/cuda-runtime-api/group__CUDART__TYPES.html#group__CUDART__TYPES_1g49e2f8c2c0bd6fe264f2fc970912e5cd
 cuda_device_info get_cuda_info() {
     int id;
     // CUDA_CHECK(cudaGetDevice(&id));
     cudaGetDevice(&id);
 
-    cudaDeviceProp prop;
-    // CUDA_CHECK(cudaGetDeviceProperties(&prop, id));
-    cudaGetDeviceProperties(&prop, id);
+    auto get_attr = [&](cudaDeviceAttr attr) -> int {
+      int value = 0;
+      if (cudaDeviceGetAttribute(&value, attr, id) != cudaSuccess) {
+        value = 0;
+      }
+      return value;
+    };
 
+    // only cc and nsm are used for now
     cuda_device_info info;
-    info.cc = prop.major*100 + prop.minor * 10;
-    info.nsm = prop.multiProcessorCount;
-    info.smpb = prop.sharedMemPerBlock;
-    info.smpbo = prop.sharedMemPerBlockOptin;
-    info.vmm = prop.managedMemory;
-    info.vmm_granularity = prop.managedMemory ? prop.managedMemory : 0;
-    info.total_vram = prop.totalGlobalMem;
+    const int major = get_attr(cudaDevAttrComputeCapabilityMajor);
+    const int minor = get_attr(cudaDevAttrComputeCapabilityMinor);
+    info.cc = major * 100 + minor * 10;
+    info.nsm = get_attr(cudaDevAttrMultiProcessorCount);
+
+    // info.smpb = get_attr(cudaDevAttrMaxSharedMemoryPerBlock);
+    // const int smpbo = get_attr(cudaDevAttrMaxSharedMemoryPerBlockOptin);
+    // info.smpbo = smpbo ? smpbo : info.smpb;
+
+    // const int managed = get_attr(cudaDevAttrManagedMemory);
+    // info.vmm = managed;
+    // info.vmm_granularity = managed ? managed : 0;
+
+    // size_t free_bytes = 0;
+    // size_t total_bytes = 0;
+    // if (cudaMemGetInfo(&free_bytes, &total_bytes) == cudaSuccess) {
+    //   info.total_vram = total_bytes;
+    // } else {
+    //   info.total_vram = 0;
+    // }
 
     return info;
 }
