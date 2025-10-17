@@ -36,10 +36,10 @@ void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream) {
             launch_mul_mat_q<scalar_t, type,   8, 4>(args, stream);
             break;
         case  16:
-            launch_mul_mat_q<scalar_t, type,  16, 8>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  16, 4>(args, stream);
             break;
         case  24:
-            launch_mul_mat_q<scalar_t, type,  24, 8>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  24, 4>(args, stream);
             break;
         case  32:
             launch_mul_mat_q<scalar_t, type,  32, 8>(args, stream);

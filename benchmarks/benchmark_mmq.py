@@ -51,7 +51,7 @@ def main(
     num_iters: int = 100,
     use_remote: bool = False,
     revision: str = "main",
-) -> None:
+) -> tuple[float, float]:
     ops = get_kernel_ops(use_remote, revision=revision)
 
     seed_everything(seed)
@@ -64,8 +64,14 @@ def main(
             hidden_size=hidden_size, quant_type=quant_type
         )
     ]
+    shape = [
+        tuple(map(int, tensor.name.split("_")[-1].split("x")))
+        for tensor in get_gguf_sample_tensors(
+            hidden_size=hidden_size, quant_type=quant_type
+        )
+    ]
 
-    def run_cuda_benchmark(num_iters: int, profile: bool = False) -> float:
+    def run_mmq_cuda_benchmark(num_iters: int, profile: bool = False) -> float:
         torch.cuda.synchronize()
         if profile:
             torch.cuda.cudart().cudaProfilerStart()
@@ -87,21 +93,56 @@ def main(
             torch.cuda.cudart().cudaProfilerStop()
         return (end_time - start_time) / num_iters
 
-    # Warmup.
-    run_benchmark = run_cuda_benchmark
-    run_benchmark(num_iters=num_warmup_iters, profile=False)
+    def run_dequant_cuda_benchmark(num_iters: int, profile: bool = False) -> float:
+        torch.cuda.synchronize()
+        if profile:
+            torch.cuda.cudart().cudaProfilerStart()
+        start_time = time.perf_counter()
 
-    # Benchmark.
+        for _ in range(num_iters):
+            for tensor, tensor_shape in zip(w, shape):
+                wt = ops.ggml_dequantize(
+                    tensor,
+                    quant_type,
+                    *tensor_shape,
+                ).T.to(dtype)
+                x @ wt
+
+        torch.cuda.synchronize()
+
+        end_time = time.perf_counter()
+        if profile:
+            torch.cuda.cudart().cudaProfilerStop()
+        return (end_time - start_time) / num_iters
+
+    # Warmup.
+    run_benchmark = run_dequant_cuda_benchmark
+    run_benchmark(num_iters=num_warmup_iters, profile=False)
+    # Benchmark dequant.
     if do_profile:
-        latency = run_benchmark(num_iters=1, profile=True)
+        dequant_latency = run_benchmark(num_iters=1, profile=True)
     else:
-        latency = run_benchmark(num_iters=num_iters, profile=False)
+        dequant_latency = run_benchmark(num_iters=num_iters, profile=False)
 
     quant_name = [
         name for name, qtype in QUANT_TYPES_MAP.items() if qtype == quant_type
     ][0]
-    print(f"{quant_name} Kernel running time: {latency * 1e3 :.3f} ms")
-    return latency * 1e3
+    print(f"{quant_name} Dequant Kernel running time: {dequant_latency * 1e3 :.3f} ms")
+
+    # Warmup.
+    run_benchmark = run_mmq_cuda_benchmark
+    run_benchmark(num_iters=num_warmup_iters, profile=False)
+    # Benchmark MMQ.
+    if do_profile:
+        mmq_latency = run_benchmark(num_iters=1, profile=True)
+    else:
+        mmq_latency = run_benchmark(num_iters=num_iters, profile=False)
+
+    quant_name = [
+        name for name, qtype in QUANT_TYPES_MAP.items() if qtype == quant_type
+    ][0]
+    print(f"{quant_name} MMQ Kernel running time: {mmq_latency * 1e3 :.3f} ms")
+    return dequant_latency * 1e3, mmq_latency * 1e3
 
 
 if __name__ == "__main__":
@@ -133,9 +174,9 @@ if __name__ == "__main__":
     print(args)
 
     dtype = DTYPES_MAP[args.dtype]
-    result = {"Quantization": [], "Time (ms)": []}
+    result = {"Quantization": [], "Dequant Time (ms)": [], "MMQ Time (ms)": []}
     for quant_name, quant_type in QUANT_TYPES_MAP.items():
-        latency = main(
+        dequant_latency, mmq_latency = main(
             num_tokens=args.num_tokens,
             hidden_size=args.hidden_size,
             quant_type=quant_type,
@@ -148,7 +189,8 @@ if __name__ == "__main__":
             revision=args.revision,
         )
         result["Quantization"].append(quant_name)
-        result["Time (ms)"].append(latency)
+        result["Dequant Time (ms)"].append(dequant_latency)
+        result["MMQ Time (ms)"].append(mmq_latency)
 
     kernel_mode = "remote" if args.use_remote else "local"
     result_df = pd.DataFrame(result)
