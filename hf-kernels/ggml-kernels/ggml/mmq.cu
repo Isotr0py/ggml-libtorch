@@ -31,7 +31,7 @@ cuda_device_info get_cuda_info() {
     cuda_device_info info;
     const int major = get_attr(cudaDevAttrComputeCapabilityMajor);
     const int minor = get_attr(cudaDevAttrComputeCapabilityMinor);
-    info.cc = static_cast<int64_t>(major) * 100 + static_cast<int64_t>(minor) * 10;
+    info.cc = major * 100 + minor * 10;
     info.nsm = get_attr(cudaDevAttrMultiProcessorCount);
 
     // info.smpb = get_attr(cudaDevAttrMaxSharedMemoryPerBlock);
