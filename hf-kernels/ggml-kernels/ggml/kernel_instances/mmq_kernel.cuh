@@ -10,8 +10,9 @@
 
 template <typename scalar_t, ggml_type type>
 void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream) {
-    const int nsm = get_cuda_info().nsm;
-    const int cc  = get_cuda_info().cc;
+    const cuda_device_info cuda_info = get_cuda_info();
+    const int nsm = cuda_info.nsm;
+    const int cc  = cuda_info.cc;
 
     const int mmq_x_max = get_mmq_x_max_host(cc);
     const int mmq_y = get_mmq_y_host(cc, mmq_x_max);
