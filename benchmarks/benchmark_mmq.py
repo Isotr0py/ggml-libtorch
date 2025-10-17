@@ -101,7 +101,6 @@ def main(
 
         for _ in range(num_iters):
             for tensor, tensor_shape in zip(w, shape):
-                x = torch.randn(num_tokens, hidden_size, dtype=dtype)
                 wt = ops.ggml_dequantize(
                     tensor,
                     quant_type,
