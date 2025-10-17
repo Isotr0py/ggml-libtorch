@@ -2,7 +2,7 @@
 result
 
 # kernel instances
-ggml/kernel_instances/*.cu
+# ggml/kernel_instances/*.cu
 
 # build2cmake generated files
 cmake/
