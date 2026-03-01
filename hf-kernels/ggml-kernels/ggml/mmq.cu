@@ -81,7 +81,7 @@ int64_t ggml_get_block_size(int64_t type) {
 }
 
 
-static int mmq_need_sum(int64_t type_x) {
+static bool mmq_need_sum(int64_t type_x) {
     switch (type_x) {
         case GGML_TYPE_Q4_0:
         case GGML_TYPE_Q4_1:
