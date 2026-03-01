@@ -16,35 +16,30 @@
 #define VDR_Q6_K_Q8_1_MMQ  8
 
 static __device__ __forceinline__ float vec_dot_q2_K_q8_1_impl_mmq(
-    const int * __restrict__ v, const int * __restrict__ u, const uint8_t * __restrict__ scales,
-    const half2 & dm2, const float & d8) {
+    const int * __restrict__ v, const int * __restrict__ u, const half2 * dm2, const float & d8) {
 #if defined __CUDA_ARCH__ && __CUDA_ARCH__ >= 610 || defined USE_ROCM
-    int sumi_d = 0;
-    int sumi_m = 0;
+    float sumf_d = 0.0f;
+    float sumf_m = 0.0f;
 
 #pragma unroll
     for (int i0 = 0; i0 < QI8_1; i0 += QI8_1/2) {
-        int sumi_d_sc = 0;
+        const float2 dm2f = __half22float2(dm2[i0/(QI8_1/2)]);
+        int sumi_d = 0;
+        int sumi_m = 0;
 
-        const int sc = scales[i0 / (QI8_1/2)];
-
-        // fill int with 4x m
-        int m = sc >> 4;
-        m |= m <<  8;
-        m |= m << 16;
-
+        const int vi0 = v[i0/(QI8_1/2)];
 #pragma unroll
         for (int i = i0; i < i0 + QI8_1/2; ++i) {
-            sumi_d_sc = __dp4a(v[i], u[i], sumi_d_sc); // SIMD dot product
-            sumi_m    = __dp4a(m,    u[i], sumi_m); // multiply sum of q8_1 values with m
+            const int vi = (vi0 >> (2*(i % (QI8_1/2)))) & 0x03030303;
+            sumi_d = __dp4a(vi,         u[i], sumi_d); // SIMD dot product
+            sumi_m = __dp4a(0x01010101, u[i], sumi_m);
         }
 
-        sumi_d += sumi_d_sc * (sc & 0xF);
+        sumf_d += dm2f.x * sumi_d;
+        sumf_m += dm2f.y * sumi_m;
     }
 
-    const float2 dm2f = __half22float2(dm2);
-
-    return d8 * (dm2f.x*sumi_d - dm2f.y*sumi_m);
+    return d8*(sumf_d - sumf_m);
 #endif
 }
 
@@ -58,8 +53,10 @@ static __device__ __forceinline__ float vec_dot_q3_K_q8_1_impl_mmq(
     for (int i0 = 0; i0 < QR3_K*VDR_Q3_K_Q8_1_MMQ; i0 += QI8_1/2) {
         int sumi_sc = 0;
 
+#pragma unroll
         for (int i = i0; i < i0 + QI8_1/2; ++i) {
-            sumi_sc = __dp4a(v[i], u[i], sumi_sc); // SIMD dot product
+            const int vi = __vsubss4((v[i/2] >> (4*(i%2))) & 0x0F0F0F0F, 0x04040404);
+            sumi_sc = __dp4a(vi, u[i], sumi_sc); // SIMD dot product
         }
 
         sumi += sumi_sc * scales[i0 / (QI8_1/2)];
@@ -299,7 +296,7 @@ static __device__ __forceinline__ void vec_dot_q4_0_q8_1_dp4a(
     const int * __restrict__ y, float * __restrict__ sum, const int & k0) {
 
     GGML_UNUSED(x_sc);
-    const float * x_dmf = (const float *) x_dm;
+    const float * x_df = (const float *) x_dm;
     const int   * y_qs  = (const int   *) y + 4;
     const half2 * y_ds  = (const half2 *) y;
 
@@ -355,7 +352,7 @@ static __device__ __forceinline__ void vec_dot_q4_0_q8_1_mma(
         const int k     = k0 + mma_A::get_k(l) % QI4_0;
         const int shift =   4*(mma_A::get_k(l) / QI4_0);
 
-        A.x[l] = __vsubss4((x_ql[i*(WARP_SIZE + 1) + k] >> shift) & 0x0F0F0F0F, 0x08080808);
+        A.x[l] = __vsubss4((x_qs[i*(WARP_SIZE + 1) + k] >> shift) & 0x0F0F0F0F, 0x08080808);
     }
 #pragma unroll
     for (int l = 0; l < mma_C::ne/2; ++l) {
@@ -1028,12 +1025,7 @@ template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinlin
         }
 
         const int sc_m = bxi->scales[kqsx];
-#ifdef FAST_FP16_AVAILABLE
         const half2 x_dm_ik = __hmul2(bxi->dm, make_half2(sc_m & 0x0F, sc_m >> 4));
-#else
-        const float2 bxi_dmf = __half22float2(bxi->dm);
-        const half2 x_dm_ik = make_half2(bxi_dmf.x*(sc_m & 0x0F), bxi_dmf.y*(sc_m >> 4));
-#endif // FAST_FP16_AVAILABLE
 
         x_dm[i*(WARP_SIZE + 1) + threadIdx.x] = x_dm_ik;
     }
@@ -1955,80 +1947,80 @@ static __device__ __forceinline__ void mmq_write_back_mma(const float * __restri
 template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check, ggml_type type>
 struct mmq_type_traits;
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_0> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_0> {
     static constexpr int              vdr          = VDR_Q4_0_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q4_0<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q4_0_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q4_0_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_1> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_1> {
     static constexpr int              vdr          = VDR_Q4_1_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q4_1<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q4_1_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q4_1_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_0> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_0> {
     static constexpr int              vdr          = VDR_Q5_0_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q5_0<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q5_0_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q5_0_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_1> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_1> {
     static constexpr int              vdr          = VDR_Q5_1_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q5_1<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q5_1_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q5_1_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q8_0> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q8_0> {
     static constexpr int              vdr          = VDR_Q8_0_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q8_0<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q8_0_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q8_0_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q2_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q2_K> {
     static constexpr int              vdr          = VDR_Q2_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q2_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q2_K_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q2_K_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q3_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q3_K> {
     static constexpr int              vdr          = VDR_Q3_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q3_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q3_K_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q3_K_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q4_K> {
     static constexpr int              vdr          = VDR_Q4_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q4_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q4_K_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q4_K_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q5_K> {
     static constexpr int              vdr          = VDR_Q5_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q5_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q5_K_q8_1_mma<mmq_x, mmq_y, nwarps>;
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q5_K_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <int mmq_x, int mmq_y, int nwarps, bool need_check>
-struct mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q6_K> {
+template <typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
+struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q6_K> {
     static constexpr int              vdr          = VDR_Q6_K_Q8_1_MMQ;
     static constexpr load_tiles_mmq_t load_tiles   = load_tiles_q6_K<mmq_y, nwarps, need_check>;
     static constexpr vec_dot_mmq_t    vec_dot_mma  = vec_dot_q6_K_q8_1_mma<mmq_x, mmq_y, nwarps>;
@@ -2056,11 +2048,11 @@ static __global__ void mul_mat_q(
     constexpr int              vdr        = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::vdr;
     constexpr load_tiles_mmq_t load_tiles = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::load_tiles;
 #ifdef INT8_MMA_AVAILABLE
-    constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::vec_dot_mma;
-    constexpr mmq_write_back_t write_back = mmq_write_back_mma<mmq_x, mmq_y, nwarps, need_check>;
+    constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::vec_dot_mma;
+    constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_mma<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #else
-    constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<mmq_x, mmq_y, nwarps, need_check, type>::vec_dot_dp4a;
-    constexpr mmq_write_back_t write_back = mmq_write_back_dp4a<mmq_x, mmq_y, nwarps, need_check>;
+    constexpr vec_dot_mmq_t    vec_dot    = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::vec_dot_dp4a;
+    constexpr mmq_write_back_t<scalar_t> write_back = mmq_write_back_dp4a<scalar_t, mmq_x, mmq_y, nwarps, need_check>;
 #endif // INT8_MMA_AVAILABLE
 
     constexpr tile_x_sizes txs = get_tile_x_sizes_device<mmq_y>(type);

@@ -34,9 +34,9 @@ cuda_device_info get_cuda_info() {
     info.cc = major * 100 + minor * 10;
     info.nsm = get_attr(cudaDevAttrMultiProcessorCount);
 
-    // info.smpb = get_attr(cudaDevAttrMaxSharedMemoryPerBlock);
-    // const int smpbo = get_attr(cudaDevAttrMaxSharedMemoryPerBlockOptin);
-    // info.smpbo = smpbo ? smpbo : info.smpb;
+    info.smpb = get_attr(cudaDevAttrMaxSharedMemoryPerBlock);
+    const int smpbo = get_attr(cudaDevAttrMaxSharedMemoryPerBlockOptin);
+    info.smpbo = smpbo ? smpbo : info.smpb;
 
     // const int managed = get_attr(cudaDevAttrManagedMemory);
     // info.vmm = managed;
