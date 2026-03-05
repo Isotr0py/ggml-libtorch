@@ -161,9 +161,8 @@ void quantize_mmq_q8_1_cuda(
   
     // different from original ggml implementation, kx_padded
     // and channels is computed inside the function here
-    // const int64_t kx0_padded = (kx0 + 512 + 1) / 512 * 512;
     int64_t kx0_padded = MATRIX_ROW_PADDING == 0 ?
-        kx0 : kx0 - kx0 % MATRIX_ROW_PADDING + MATRIX_ROW_PADDING;
+        kx0 : (kx0 + MATRIX_ROW_PADDING - 1) / MATRIX_ROW_PADDING * MATRIX_ROW_PADDING;
     const int channels = 1;
 
     const int64_t block_num_x = (kx0_padded + CUDA_QUANTIZE_BLOCK_SIZE - 1) / CUDA_QUANTIZE_BLOCK_SIZE;
@@ -186,9 +185,8 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
       "X must have shape [num_tokens, hidden_size] or [batch_size, num_tokens, hidden_size]");
 
   int col = X.sizes()[x_ndim - 1];
-  // int padded = (col + 512 + 1) / 512 * 512;
   int padded = MATRIX_ROW_PADDING == 0 ?
-        col : col - col % MATRIX_ROW_PADDING + MATRIX_ROW_PADDING;
+        col : (col + MATRIX_ROW_PADDING - 1) / MATRIX_ROW_PADDING * MATRIX_ROW_PADDING;
   const at::cuda::OptionalCUDAGuard device_guard(device_of(X));
   auto options = torch::TensorOptions().dtype(X.dtype()).device(W.device());
 
@@ -205,16 +203,33 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
 
   cudaStream_t stream = at::cuda::getCurrentCUDAStream().stream();
   options = torch::TensorOptions().dtype(torch::kInt32).device(W.device());
-  at::Tensor quant_X = torch::empty({batch, padded / 32 * 9}, options);
+  // Pad batch to the next multiple of MMQ_MAX_BATCH_SIZE so that the mul_mat_q
+  // kernel can safely load full tiles of mmq_x tokens without reading past the
+  // end of the buffer.  The quantize kernel still uses the real batch size for
+  // its layout (stride11 = batch), so we zero-initialize to keep the padding
+  // slots from contributing to the dot products.
+  const int64_t padded_batch = ((batch + MMQ_MAX_BATCH_SIZE - 1) / MMQ_MAX_BATCH_SIZE) * MMQ_MAX_BATCH_SIZE;
+  at::Tensor quant_X = torch::zeros({padded_batch, padded / 32 * 9}, options);
   VLLM_DISPATCH_FLOATING_TYPES(X.scalar_type(), "ggml_mul_mat_a8", [&] {
     quantize_mmq_q8_1_cuda((scalar_t*)X.data_ptr(), (void*)quant_X.data_ptr(),
                            col, batch, type, stream);
 
     const int64_t stride00 = col / ggml_get_block_size(type);
     const int64_t stride11 = batch;
+
+    // When stride00 == 1 (one weight block per row, e.g. Q2_K/Q3_K with col==QK_K),
+    // load_tiles may speculatively read weight[ne01] via kbx=1 on the last tile row.
+    // Append a zero block so that OOB address is safe memory with zero scale/quants.
+    at::Tensor W_safe = W;
+    if (stride00 == 1) {
+        auto W_padded = torch::zeros({row + 1, W.size(1)}, W.options());
+        W_padded.slice(0, 0, row).copy_(W);
+        W_safe = W_padded;
+    }
+
     mmq_args<scalar_t> kernel_args;
     kernel_args = {
-        (char*)W.data_ptr(), (char*)quant_X.data_ptr(),
+        (char*)W_safe.data_ptr(), (char*)quant_X.data_ptr(),
         (scalar_t*)Y.data_ptr(), col, row, stride00, padded, batch, stride11, row
     };
 

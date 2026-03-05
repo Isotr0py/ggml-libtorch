@@ -85,22 +85,23 @@ def test_mmvq(hidden_size: int, dtype: torch.dtype, quant_type: GGMLQuantization
 @pytest.mark.parametrize("hidden_size", HIDDEN_SIZES)
 @pytest.mark.parametrize("dtype", DTYPES)
 @pytest.mark.parametrize(
-    "quant_type",
+    "quant_type, name",
     [
         # k-quants
-        GGMLQuantizationType.Q2_K,
-        GGMLQuantizationType.Q3_K,
-        GGMLQuantizationType.Q4_K,
-        GGMLQuantizationType.Q5_K,
-        GGMLQuantizationType.Q6_K,
+        (GGMLQuantizationType.Q2_K, "Q2_K"),
+        (GGMLQuantizationType.Q3_K, "Q3_K"),
+        (GGMLQuantizationType.Q4_K, "Q4_K"),
+        (GGMLQuantizationType.Q5_K, "Q5_K"),
+        (GGMLQuantizationType.Q6_K, "Q6_K"),
         # standard quants
-        GGMLQuantizationType.Q4_0,
-        GGMLQuantizationType.Q5_0,
-        GGMLQuantizationType.Q8_0,
+        (GGMLQuantizationType.Q4_0, "Q4_0"),
+        (GGMLQuantizationType.Q5_0, "Q5_0"),
+        (GGMLQuantizationType.Q8_0, "Q8_0"),
     ],
 )
 @torch.inference_mode()
 def test_mmq(
+    name: str,
     num_tokens: int,
     hidden_size: int,
     dtype: torch.dtype,
