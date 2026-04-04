@@ -16,70 +16,74 @@ void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream) {
     const size_t smpbo = cuda_info.smpbo;
 
     const int mmq_x_max = get_mmq_x_max_host(cc);
-    const int mmq_y = get_mmq_y_host(cc, mmq_x_max);
+    const int mmq_y = get_mmq_y_host(cc);
     const int block_num_y = (args.ne01 + mmq_y - 1) / mmq_y;
 
+    const bool use_stream_k = cc >= 700 && cc < 1000000;
+
     int mmq_x_best  = 0;
-    int nwaves_best = INT_MAX;
+    int nparts_best = INT_MAX;
 
-    for (int mmq_x = 8; mmq_x <= mmq_x_max && nwaves_best > 1; mmq_x += 8) {
-        const int block_num_x = (args.ne11 + mmq_x - 1) / mmq_x;
-        const int nwaves = (block_num_x*block_num_y + nsm - 1) / nsm;
+    for (int mmq_x = 8; mmq_x <= mmq_x_max && nparts_best > 1; mmq_x += 8) {
+        const int ntiles_x = (args.ne11 + mmq_x - 1) / mmq_x;
+        const int nwaves_xy_tiling = ntiles_x * block_num_y;
 
-        if (nwaves < nwaves_best && mmq_get_shmem(type, mmq_x, mmq_y) <= smpbo) {
+        const int nparts = use_stream_k ? ntiles_x : nwaves_xy_tiling;
+
+        if (nparts < nparts_best && (size_t)mmq_get_shmem(type, mmq_x, mmq_y) <= smpbo) {
             mmq_x_best  = mmq_x;
-            nwaves_best = nwaves;
+            nparts_best = nparts;
         }
     }
 
     switch (mmq_x_best) {
         case   8:
-            launch_mul_mat_q<scalar_t, type,   8, mmq_get_nwarps(  8)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,   8>(args, stream);
             break;
         case  16:
-            launch_mul_mat_q<scalar_t, type,  16, mmq_get_nwarps( 16)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  16>(args, stream);
             break;
         case  24:
-            launch_mul_mat_q<scalar_t, type,  24, mmq_get_nwarps( 24)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  24>(args, stream);
             break;
         case  32:
-            launch_mul_mat_q<scalar_t, type,  32, mmq_get_nwarps( 32)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  32>(args, stream);
             break;
         case  40:
-            launch_mul_mat_q<scalar_t, type,  40, mmq_get_nwarps( 40)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  40>(args, stream);
             break;
         case  48:
-            launch_mul_mat_q<scalar_t, type,  48, mmq_get_nwarps( 48)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  48>(args, stream);
             break;
         case  56:
-            launch_mul_mat_q<scalar_t, type,  56, mmq_get_nwarps( 56)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  56>(args, stream);
             break;
         case  64:
-            launch_mul_mat_q<scalar_t, type,  64, mmq_get_nwarps( 64)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  64>(args, stream);
             break;
         case  72:
-            launch_mul_mat_q<scalar_t, type,  72, mmq_get_nwarps( 72)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  72>(args, stream);
             break;
         case  80:
-            launch_mul_mat_q<scalar_t, type,  80, mmq_get_nwarps( 80)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  80>(args, stream);
             break;
         case  88:
-            launch_mul_mat_q<scalar_t, type,  88, mmq_get_nwarps( 88)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  88>(args, stream);
             break;
         case  96:
-            launch_mul_mat_q<scalar_t, type,  96, mmq_get_nwarps( 96)>(args, stream);
+            launch_mul_mat_q<scalar_t, type,  96>(args, stream);
             break;
         case 104:
-            launch_mul_mat_q<scalar_t, type, 104, mmq_get_nwarps(104)>(args, stream);
+            launch_mul_mat_q<scalar_t, type, 104>(args, stream);
             break;
         case 112:
-            launch_mul_mat_q<scalar_t, type, 112, mmq_get_nwarps(112)>(args, stream);
+            launch_mul_mat_q<scalar_t, type, 112>(args, stream);
             break;
         case 120:
-            launch_mul_mat_q<scalar_t, type, 120, mmq_get_nwarps(120)>(args, stream);
+            launch_mul_mat_q<scalar_t, type, 120>(args, stream);
             break;
         case 128:
-            launch_mul_mat_q<scalar_t, type, 128, mmq_get_nwarps(128)>(args, stream);
+            launch_mul_mat_q<scalar_t, type, 128>(args, stream);
             break;
         default:
             assert(false);

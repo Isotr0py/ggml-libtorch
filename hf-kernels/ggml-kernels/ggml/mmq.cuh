@@ -2,6 +2,7 @@
 #include "mma.cuh"
 
 #define MMQ_TILE_Y_K (WARP_SIZE + WARP_SIZE/QI8_1)
+#define MMQ_NWARPS 8
 
 // ----- Vector dot product of K-quants MMQ -----
 #define VDR_Q4_0_Q8_1_MMQ  4
@@ -156,8 +157,8 @@ static int get_mmq_x_max_host(const int cc) {
 }
     
 // Round rows to this value for --split-mode row:
-static int get_mmq_y_host(const int cc, const int mmq_x) {
-    return cc >= 700 && mmq_x >= 32 ? 128 : 64;
+static int get_mmq_y_host(const int cc) {
+    return cc >= 700 ? 128 : 64;
 }
 
 
@@ -168,7 +169,7 @@ typedef void (*vec_dot_mmq_t)(
     const int * __restrict__ x_qs, const half2 * __restrict__ x_dm, const int * __restrict__ x_sc,
     const int * __restrict__ y, float * __restrict__ sum, const int & k0);
 template <typename scalar_t>
-using mmq_write_back_t = void (*)(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1);
+using mmq_write_back_t = void (*)(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & stride, const int & i_max, const int & j_max);
 
 struct block_q8_1_mmq {
     half2  ds[4];
@@ -199,21 +200,17 @@ static constexpr __device__ int get_mmq_x_max_device() {
 
 // get_mmq_y_host is in common.cuh so that it can be used to determine the correct way to round for --split-mode row
 
+static constexpr __device__ int get_mmq_y_device() {
 #if defined(USE_ROCM)
-static constexpr __device__ int get_mmq_y_device(int mmq_x) {
-    return mmq_x >= 32 ? 128 : 64;
-}
+    return 128;
 #else
 #if __CUDA_ARCH__ >= 700
-static constexpr __device__ int get_mmq_y_device(int mmq_x) {
-    return mmq_x >= 32 ? 128 : 64;
-}
+    return 128;
 #else
-static constexpr __device__ int get_mmq_y_device(int /*mmq_x*/) {
     return 64;
-}
 #endif // __CUDA_ARCH__ >= 700
 #endif // defined(USE_ROCM)
+}
 
 #define TILE_X_SIZES_Q4_0 tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE/QI4_0 + mmq_y/QI4_0, 0}
 #define TILE_X_SIZES_Q4_1 tile_x_sizes{mmq_y*WARP_SIZE   + mmq_y, mmq_y*WARP_SIZE/QI4_1 + mmq_y/QI4_1, 0}
@@ -1892,30 +1889,34 @@ static __device__ __forceinline__ void vec_dot_q6_K_q8_1_mma(
 // MMQ write back
 // -------------------------------------------------------------------------------------------------------------------------------------
 template<typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
-static __device__ __forceinline__ void mmq_write_back_dp4a(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1) {
+static __device__ __forceinline__ void mmq_write_back_dp4a(
+    const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & stride, const int & i_max, const int & j_max) {
+
 #pragma unroll
     for (int j0 = 0; j0 < mmq_x; j0 += nwarps) {
-        const int j = blockIdx.y*mmq_x + j0 + threadIdx.y;
+        const int j = j0 + threadIdx.y;
 
-        if (j >= ne1) {
+        if (j > j_max) {
             return;
         }
 
 #pragma unroll
         for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
-            const int i = blockIdx.x*mmq_y + i0 + threadIdx.x;
+            const int i = i0 + threadIdx.x;
 
-            if (need_check && i >= ne0) {
+            if (need_check && i > i_max) {
                 continue;
             }
 
-            dst[j*ne0 + i] = sum[(j0/nwarps) * (mmq_y/WARP_SIZE) + i0/WARP_SIZE];
+            dst[j*stride + i] = sum[(j0/nwarps) * (mmq_y/WARP_SIZE) + i0/WARP_SIZE];
         }
     }
 }
 
 template<typename scalar_t, int mmq_x, int mmq_y, int nwarps, bool need_check>
-static __device__ __forceinline__ void mmq_write_back_mma(const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & ne0, const int & ne1) {
+static __device__ __forceinline__ void mmq_write_back_mma(
+    const float * __restrict__ sum, scalar_t * __restrict__ dst, const int & stride, const int & i_max, const int & j_max) {
+
     typedef mma_int_C_I16J8 mma_C;
 
     const int i0 = threadIdx.y*mma_C::I;
@@ -1927,19 +1928,19 @@ static __device__ __forceinline__ void mmq_write_back_mma(const float * __restri
     for (int j0 = 0; j0 < mmq_x; j0 += mma_C::J) {
 #pragma unroll
         for (int l = 0; l < mma_C::ne; ++l) {
-            const int j = blockIdx.y*mmq_x + j0 + mma_C::get_j(l);
+            const int j = j0 + mma_C::get_j(l);
 
-            if (j >= ne1) {
+            if (j > j_max) {
                 continue;
             }
 
-            const int i = blockIdx.x*mmq_y + i0 + mma_C::get_i(l);
+            const int i = i0 + mma_C::get_i(l);
 
-            if (need_check && i >= ne0) {
+            if (need_check && i > i_max) {
                 continue;
             }
 
-            dst[j*ne0 + i] = sum[(j0/mma_C::J)*mma_C::ne + l];
+            dst[j*stride + i] = sum[(j0/mma_C::J)*mma_C::ne + l];
         }
     }
 }
@@ -2029,24 +2030,16 @@ struct mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, GGML_TYPE_Q6_
     static constexpr vec_dot_mmq_t    vec_dot_dp4a = vec_dot_q6_K_q8_1_dp4a<mmq_x, mmq_y, nwarps>;
 };
 
-template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
-#if defined(USE_ROCM)
-__launch_bounds__(WARP_SIZE*nwarps, 2)
-#else
-#if __CUDA_ARCH__ >= 700
-    __launch_bounds__(WARP_SIZE*nwarps, 1)
-#else
-    __launch_bounds__(WARP_SIZE*nwarps, 2)
-#endif // __CUDA_ARCH__ >= 700
-#endif // defined(USE_ROCM)
-static __global__ void mul_mat_q(
-    const char * __restrict__ x, const char * __restrict__ yc, scalar_t * __restrict__ dst,
-    const int ne00, const int ne01, const int stride01, const int ne10, const int ne11, const int stride11, const int ne0) {
+template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check, bool fixup>
+static __device__ void mul_mat_q_process_tile(
+    const char * __restrict__ x, const char * __restrict__ yc, scalar_t * __restrict__ dst, float * __restrict__ tmp_fixup,
+    const int & ne00, const int & ne01, const int & stride01, const int & ne10, const int & ne11, const int & stride11, const int & ne0,
+    const int & it, const int & jt, const int & kb0_start, const int & kb0_stop) {
 
     constexpr int              qk         = ggml_cuda_type_traits<type>::qk;
     constexpr int              qr         = ggml_cuda_type_traits<type>::qr;
     constexpr int              qi         = ggml_cuda_type_traits<type>::qi;
-    constexpr int              mmq_y      = get_mmq_y_device(mmq_x);
+    constexpr int              mmq_y      = get_mmq_y_device();
     constexpr int              vdr        = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::vdr;
     constexpr load_tiles_mmq_t load_tiles = mmq_type_traits<scalar_t, mmq_x, mmq_y, nwarps, need_check, type>::load_tiles;
 #ifdef INT8_MMA_AVAILABLE
@@ -2063,21 +2056,20 @@ static __global__ void mul_mat_q(
     int   * tile_x_qs = (int   *)  data_mul_mat_q;
     half2 * tile_x_dm = (half2 *) (tile_x_qs + txs.qs);
     int   * tile_x_sc = (int   *) (tile_x_dm + txs.dm);
-    int * tile_y = (int *) (tile_x_sc + txs.sc); // [mmq_x * (WARP_SIZE + WARP_SIZE/QI8_1)]
+    int   * tile_y    = (int   *) (tile_x_sc + txs.sc); // [mmq_x * (WARP_SIZE + WARP_SIZE/QI8_1)]
 
-    const int blocks_per_row_x = ne00 / qk;
-    const int blocks_per_warp = WARP_SIZE / qi;
-
-    const int & ne1 = ne11;
-
-    const int tile_x_max_i = ne01 - blockIdx.x*mmq_y - 1;
+    constexpr int blocks_per_warp = WARP_SIZE / qi;
 
     float sum[mmq_x*mmq_y / (nwarps*WARP_SIZE)] = {0.0f};
-    const int * y = (const int *) yc + blockIdx.y*(mmq_x*sizeof(block_q8_1_mmq)/sizeof(int));
 
-    for (int kb0 = 0; kb0 < blocks_per_row_x; kb0 += blocks_per_warp) {
+    const int tile_x_max_i = ne01 - it*mmq_y - 1;
+    const int tile_y_max_j = ne11 - jt*mmq_x - 1;
 
-        load_tiles(x, tile_x_qs, tile_x_dm, tile_x_sc, stride01*blockIdx.x*mmq_y + kb0, tile_x_max_i, stride01);
+    const int * y = (const int *) yc + jt*(mmq_x*sizeof(block_q8_1_mmq)/sizeof(int));
+
+    for (int kb0 = kb0_start; kb0 < kb0_stop; kb0 += blocks_per_warp) {
+
+        load_tiles(x, tile_x_qs, tile_x_dm, tile_x_sc, stride01*it*mmq_y + kb0, tile_x_max_i, stride01);
 
 #pragma unroll
         for (int kr = 0; kr < qr; ++kr) {
@@ -2101,20 +2093,190 @@ static __global__ void mul_mat_q(
         }
     }
 
-    write_back(sum, dst, ne0, ne1);
+    if (fixup) {
+        // Always write float to fixup buffer
+        float * fixup_dst = tmp_fixup + blockIdx.x*(mmq_x*mmq_y);
+#ifdef INT8_MMA_AVAILABLE
+        mmq_write_back_mma<float, mmq_x, mmq_y, nwarps, false>(sum, fixup_dst, mmq_y, mmq_y - 1, mmq_x - 1);
+#else
+        mmq_write_back_dp4a<float, mmq_x, mmq_y, nwarps, false>(sum, fixup_dst, mmq_y, mmq_y - 1, mmq_x - 1);
+#endif
+    } else {
+        write_back(sum, dst + jt*mmq_x*ne0 + it*mmq_y, ne0, tile_x_max_i, tile_y_max_j);
+    }
 }
 
-constexpr int mmq_get_nwarps(int mmq_x) {
-    return mmq_x >= 32 ? 8 : 4;
+
+// The mul_mat_q kernel implements "stream-k" work partitioning as described in https://arxiv.org/abs/2301.03598
+
+template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
+#if defined(USE_ROCM)
+__launch_bounds__(WARP_SIZE*nwarps, 2)
+#else
+#if __CUDA_ARCH__ >= 700
+    __launch_bounds__(WARP_SIZE*nwarps, 1)
+#else
+    __launch_bounds__(WARP_SIZE*nwarps, type == GGML_TYPE_Q2_K ? 1 : 2)
+#endif // __CUDA_ARCH__ >= 700
+#endif // defined(USE_ROCM)
+static __global__ void mul_mat_q(
+    const char * __restrict__ x, const char * __restrict__ yc, scalar_t * __restrict__ dst, float * __restrict__ tmp_fixup,
+    const int ne00, const int ne01, const int stride01, const int ne10, const int ne11, const int stride11, const int ne0) {
+
+    // Skip unused template specializations for faster compilation:
+    if (mmq_x > get_mmq_x_max_device()) {
+        // NO_DEVICE_CODE;
+        return;
+    }
+
+    constexpr int qk    = ggml_cuda_type_traits<type>::qk;
+    constexpr int qi    = ggml_cuda_type_traits<type>::qi;
+    constexpr int mmq_y = get_mmq_y_device();
+
+    // On AMD or old CUDA the performance with stream-k was worse, use conventional tiling instead:
+#if defined(USE_ROCM) || __CUDA_ARCH__ < 700
+    {
+        constexpr bool fixup = false;
+        mul_mat_q_process_tile<scalar_t, type, mmq_x, nwarps, need_check, fixup>
+            (x, yc, dst, tmp_fixup, ne00, ne01, stride01, ne10, ne11, stride11, ne0,
+                blockIdx.x, blockIdx.y, 0, ne00/qk);
+        return;
+    }
+#endif // defined(USE_ROCM) || __CUDA_ARCH__ < 700
+
+    const     int64_t blocks_per_ne00 = ne00 / qk;
+    constexpr int     blocks_per_warp = WARP_SIZE / qi;
+
+    const int ntx = (ne11 + mmq_x - 1) / mmq_x; // Number of tiles x
+    const int nty = (ne01 + mmq_y - 1) / mmq_y; // Number of tiles y
+
+    // kbc == k block continuous, current index in continuous ijk space.
+    const int64_t total_kbc = (int64_t)blocks_per_ne00 * ntx * nty;
+    int64_t       kbc      = GGML_PAD((int64_t) blockIdx.x     * total_kbc / gridDim.x, blocks_per_warp);
+    const int64_t kbc_stop = min(total_kbc, (int64_t)GGML_PAD((int64_t)(blockIdx.x + 1) * total_kbc / gridDim.x, blocks_per_warp));
+
+    // kb0 == k index when doing the matrix multiplication for an output tile.
+    int kb0_start = kbc % blocks_per_ne00;
+    int kb0_stop  = min((int64_t)blocks_per_ne00, kb0_start + kbc_stop - kbc);
+    while (kbc < kbc_stop && kb0_stop == blocks_per_ne00) {
+        const int jt =  kbc /    (blocks_per_ne00*nty);                    // j index of current tile.
+        const int it = (kbc - jt*(blocks_per_ne00*nty)) / blocks_per_ne00; // i index of current tile.
+
+        constexpr bool fixup = false; // All but (potentially) the last iterations write their data to dst rather than the fixup buffer.
+        mul_mat_q_process_tile<scalar_t, type, mmq_x, nwarps, need_check, fixup>
+            (x, yc, dst, tmp_fixup, ne00, ne01, stride01, ne10, ne11, stride11, ne0,
+             it, jt, kb0_start, kb0_stop);
+
+        kbc += blocks_per_ne00;
+        kbc -= kbc % blocks_per_ne00;
+
+        kb0_start = 0;
+        kb0_stop  = min((int64_t)blocks_per_ne00, kbc_stop - kbc);
+    }
+
+    if (kbc >= kbc_stop) {
+        return;
+    }
+
+    const int jt =  kbc /    (blocks_per_ne00*nty);
+    const int it = (kbc - jt*(blocks_per_ne00*nty)) / blocks_per_ne00;
+
+    constexpr bool fixup = true; // Last index writes its data to fixup buffer to avoid data races with other blocks.
+    mul_mat_q_process_tile<scalar_t, type, mmq_x, nwarps, need_check, fixup>
+        (x, yc, dst, tmp_fixup, ne00, ne01, stride01, ne10, ne11, stride11, ne0,
+            it, jt, kb0_start, kb0_stop);
+}
+
+
+template <typename scalar_t, ggml_type type, int mmq_x, int nwarps, bool need_check>
+static __global__ void mul_mat_q_stream_k_fixup(
+    scalar_t * __restrict__ dst, const float * __restrict__ tmp_last_tile,
+    const int ne00, const int ne01, const int ne11, const int ne0, const int block_num_mmq) {
+
+    constexpr int     mmq_y           = get_mmq_y_device();
+    constexpr int     qk              = ggml_cuda_type_traits<type>::qk;
+    constexpr int     qi              = ggml_cuda_type_traits<type>::qi;
+    constexpr int     blocks_per_warp = WARP_SIZE / qi;
+    const     int64_t blocks_per_ne00 = ne00 / qk;
+
+    float sum[mmq_x*mmq_y / (nwarps*WARP_SIZE)] = {0.0f};
+
+    const int ntx = (ne11 + mmq_x - 1) / mmq_x;
+    const int nty = (ne01 + mmq_y - 1) / mmq_y;
+
+    bool any_fixup = false;
+
+    const int bidx_start = (int)((int64_t)(blockIdx.y*nty + blockIdx.x)     * block_num_mmq / (gridDim.y*gridDim.x));
+    const int bidx_stop  = min(block_num_mmq, (int)((int64_t)(blockIdx.y*nty + blockIdx.x + 1) * block_num_mmq / (gridDim.y*gridDim.x) + 1));
+
+    for (int bidx = bidx_start; bidx < bidx_stop; ++bidx) {
+        const int64_t kbc      = GGML_PAD((int64_t) bidx     *blocks_per_ne00*ntx*nty / block_num_mmq, blocks_per_warp);
+        const int64_t kbc_stop = GGML_PAD((int64_t)(bidx + 1)*blocks_per_ne00*ntx*nty / block_num_mmq, blocks_per_warp);
+
+        // Skip fixup tile if the MMQ CUDA block never wrote anything to it:
+        if (kbc == kbc_stop || kbc_stop % blocks_per_ne00 == 0) {
+            continue;
+        }
+
+        const int jt =  kbc_stop /    (blocks_per_ne00*nty);
+        const int it = (kbc_stop - jt*(blocks_per_ne00*nty)) / blocks_per_ne00;
+
+        // Skip fixup tile if it's unrelated to the output tile assigned to this CUDA block:
+        if (it != blockIdx.x || jt != blockIdx.y) {
+            continue;
+        }
+
+        any_fixup = true;
+
+#pragma unroll
+        for (int j0 = 0; j0 < mmq_x; j0 += nwarps) {
+            const int j = j0 + threadIdx.y;
+
+#pragma unroll
+            for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+                const int i = i0 + threadIdx.x;
+
+                sum[(j0/nwarps) * (mmq_y/WARP_SIZE) + i0/WARP_SIZE] += tmp_last_tile[bidx*(mmq_x*mmq_y) + j*mmq_y + i];
+            }
+        }
+    }
+
+    if (!any_fixup) {
+        return;
+    }
+
+    dst += blockIdx.y*mmq_x*ne0 + blockIdx.x*mmq_y;
+
+    const int i_max = ne01 - blockIdx.x*mmq_y - 1;
+    const int j_max = ne11 - blockIdx.y*mmq_x - 1;
+
+#pragma unroll
+    for (int j0 = 0; j0 < mmq_x; j0 += nwarps) {
+        const int j = j0 + threadIdx.y;
+
+        if (j > j_max) {
+            return;
+        }
+
+#pragma unroll
+        for (int i0 = 0; i0 < mmq_y; i0 += WARP_SIZE) {
+            const int i = i0 + threadIdx.x;
+
+            if (need_check && i > i_max) {
+                continue;
+            }
+
+            dst[j*ne0 + i] += sum[(j0/nwarps) * (mmq_y/WARP_SIZE) + i0/WARP_SIZE];
+        }
+    }
 }
 
 static int mmq_get_shmem(const ggml_type type, const int mmq_x, const int mmq_y) {
     const tile_x_sizes txs = get_tile_x_sizes_host(type, mmq_y);
-    const int nwarps = mmq_get_nwarps(mmq_x);
 
     const int shmem_x = txs.qs*sizeof(int) + txs.dm*sizeof(half2) + txs.sc*sizeof(int);
     const int shmem_y = mmq_x*WARP_SIZE*sizeof(int) + mmq_x*(WARP_SIZE/QI8_1)*sizeof(half2);
-    return shmem_x + GGML_PAD(shmem_y, nwarps*WARP_SIZE*sizeof(int));
+    return shmem_x + GGML_PAD(shmem_y, MMQ_NWARPS*WARP_SIZE*sizeof(int));
 }
 
 template <typename scalar_t>
@@ -2125,38 +2287,68 @@ struct mmq_args {
     int64_t ne0;
 };
 
-template <typename scalar_t, ggml_type type, int mmq_x, int nwarps>
+template <typename scalar_t, ggml_type type, int mmq_x>
 static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t stream) {
-    const int cc = get_cuda_info().cc;
-    const int mmq_y = get_mmq_y_host(cc, mmq_x);
+    const cuda_device_info cuda_info = get_cuda_info();
+    const int cc    = cuda_info.cc;
+    const int nsm   = cuda_info.nsm;
+    const int mmq_y = get_mmq_y_host(cc);
 
-    const int block_num_x = (args.ne01 + mmq_y - 1) / mmq_y;
-    const int block_num_y = (args.ne11 + mmq_x - 1) / mmq_x;
-    const dim3 block_nums(block_num_x, block_num_y, 1);
-    const dim3 block_dims(WARP_SIZE, nwarps, 1);
-
+    const dim3 block_dims(WARP_SIZE, MMQ_NWARPS, 1);
     const int shmem = mmq_get_shmem(type, mmq_x, mmq_y);
 
-// #if !(defined(USE_ROCM))
-//     static bool shmem_limit_raised[GGML_CUDA_MAX_DEVICES] = {false};
-//     if (!shmem_limit_raised[id]) {
-//         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, false>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
-//         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<type, mmq_x, nwarps, true>,  cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
-//         shmem_limit_raised[id] = true;
-//     }
-// #endif // !(defined(USE_ROCM))
+    const int nty = (args.ne01 + mmq_y - 1) / mmq_y;
+    const int ntx = (args.ne11 + mmq_x - 1) / mmq_x;
+    const dim3 block_nums_xy_tiling(nty, ntx, 1);
+
+    const bool use_stream_k = cc >= 700 && cc < 1000000;
+    if (!use_stream_k) {
+        if (args.ne01 % mmq_y == 0) {
+            constexpr bool need_check = false;
+            CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+            mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, shmem, stream>>>
+                (args.x, args.y, args.dst, nullptr, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+        } else {
+            constexpr bool need_check = true;
+            CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+            mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, shmem, stream>>>
+                (args.x, args.y, args.dst, nullptr, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+        }
+        return;
+    }
+
+    const dim3 block_nums_mmq(nsm, 1, 1);
+
+    float * tmp_fixup = nullptr;
+#if CUDART_VERSION >= 11020
+    CUDA_CHECK(cudaMallocAsync(&tmp_fixup, block_nums_mmq.x * mmq_x * mmq_y * sizeof(float), stream));
+#else
+    CUDA_CHECK(cudaMalloc(&tmp_fixup, block_nums_mmq.x * mmq_x * mmq_y * sizeof(float)));
+#endif
 
     if (args.ne01 % mmq_y == 0) {
-        const bool need_check = false;
-        CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
-        mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check><<<block_nums, block_dims, shmem, stream>>>
-            (args.x, args.y, args.dst, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+        constexpr bool need_check = false;
+        CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+        mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_mmq, block_dims, shmem, stream>>>
+            (args.x, args.y, args.dst, tmp_fixup, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+
+        mul_mat_q_stream_k_fixup<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, 0, stream>>>
+            (args.dst, tmp_fixup, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
     } else {
-        const bool need_check = true;
-        CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
-        mul_mat_q<scalar_t, type, mmq_x, nwarps, need_check><<<block_nums, block_dims, shmem, stream>>>
-            (args.x, args.y, args.dst, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+        constexpr bool need_check = true;
+        CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
+        mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_mmq, block_dims, shmem, stream>>>
+            (args.x, args.y, args.dst, tmp_fixup, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+
+        mul_mat_q_stream_k_fixup<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, 0, stream>>>
+            (args.dst, tmp_fixup, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
     }
+
+#if CUDART_VERSION >= 11020
+    CUDA_CHECK(cudaFreeAsync(tmp_fixup, stream));
+#else
+    CUDA_CHECK(cudaFree(tmp_fixup));
+#endif
 }
 
 template <typename scalar_t, ggml_type type>
