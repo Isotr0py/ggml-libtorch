@@ -13,7 +13,7 @@ void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream) {
     const cuda_device_info cuda_info = get_cuda_info();
     const int nsm   = cuda_info.nsm;
     const int cc    = cuda_info.cc;
-    const int smpbo = cuda_info.smpbo;
+    const size_t smpbo = cuda_info.smpbo;
 
     const int mmq_x_max = get_mmq_x_max_host(cc);
     const int mmq_y = get_mmq_y_host(cc, mmq_x_max);

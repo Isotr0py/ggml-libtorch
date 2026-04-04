@@ -28,7 +28,7 @@ cuda_device_info get_cuda_info() {
     };
 
     // only cc and nsm are used for now
-    cuda_device_info info;
+    cuda_device_info info{};
     const int major = get_attr(cudaDevAttrComputeCapabilityMajor);
     const int minor = get_attr(cudaDevAttrComputeCapabilityMinor);
     info.cc = major * 100 + minor * 10;

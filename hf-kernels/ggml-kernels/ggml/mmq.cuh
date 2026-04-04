@@ -993,6 +993,7 @@ static __device__ __forceinline__ void vec_dot_q8_0_q8_1_mma(
 template <int mmq_y, int nwarps, bool need_check> static __device__ __forceinline__ void load_tiles_q2_K(
     const char * __restrict__ x, int * __restrict__ x_qs, half2 * __restrict__ x_dm,
     int * __restrict__ x_sc, const int & kbx0, const int & i_max, const int & stride) {
+    GGML_UNUSED(x_sc);
 
     const int kbx  = threadIdx.x / QI2_K;
     const int kqsx = threadIdx.x % QI2_K;
@@ -1035,6 +1036,7 @@ template <int mmq_x, int mmq_y, int nwarps>
 static __device__ __forceinline__ void vec_dot_q2_K_q8_1_dp4a(
     const int * __restrict__ x_qs, const half2 * __restrict__ x_dm, const int * __restrict__ x_sc,
     const int * __restrict__ y, float * __restrict__ sum, const int & k0) {
+    GGML_UNUSED(x_sc);
 
     const int   * y_qs = (const int   *) y + 4;
     const float * y_df = (const float *) y;
@@ -1463,7 +1465,7 @@ static __device__ __forceinline__ void vec_dot_q4_K_q8_1_mma(
     for (int l = 0; l < mma_C::ne/2; ++l) {
         const int i = i0 + mma_C::get_i(2*l);
 
-        dmA[l] = x_dm[i*(WARP_SIZE/QI5_K) + i/QI5_K + k0/QI5_K];
+        dmA[l] = x_dm[i*(WARP_SIZE/QI4_K) + i/QI4_K + k0/QI4_K];
     }
 
 #pragma unroll
@@ -1472,7 +1474,7 @@ static __device__ __forceinline__ void vec_dot_q4_K_q8_1_mma(
         float tmpm[mma_C::ne] = {0.0f};
 
 #pragma unroll
-        for (int kvdr = 0; kvdr < VDR_Q5_K_Q8_1_MMQ; kvdr += 4) {
+        for (int kvdr = 0; kvdr < VDR_Q4_K_Q8_1_MMQ; kvdr += 4) {
             mma_C   C;
             mma_B   B;
             half2 dsB[mma_C::ne/2];
