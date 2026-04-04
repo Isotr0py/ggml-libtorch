@@ -2151,8 +2151,9 @@ static __global__ void mul_mat_q(
     const int nty = (ne01 + mmq_y - 1) / mmq_y; // Number of tiles y
 
     // kbc == k block continuous, current index in continuous ijk space.
-    int64_t       kbc      = GGML_PAD((int64_t) blockIdx.x     *blocks_per_ne00*ntx*nty / gridDim.x, blocks_per_warp);
-    const int64_t kbc_stop = GGML_PAD((int64_t)(blockIdx.x + 1)*blocks_per_ne00*ntx*nty / gridDim.x, blocks_per_warp);
+    const int64_t total_kbc = (int64_t)blocks_per_ne00 * ntx * nty;
+    int64_t       kbc      = GGML_PAD((int64_t) blockIdx.x     * total_kbc / gridDim.x, blocks_per_warp);
+    const int64_t kbc_stop = min(total_kbc, (int64_t)GGML_PAD((int64_t)(blockIdx.x + 1) * total_kbc / gridDim.x, blocks_per_warp));
 
     // kb0 == k index when doing the matrix multiplication for an output tile.
     int kb0_start = kbc % blocks_per_ne00;
@@ -2205,8 +2206,8 @@ static __global__ void mul_mat_q_stream_k_fixup(
 
     bool any_fixup = false;
 
-    const int bidx_start = (blockIdx.y*nty + blockIdx.x)     * block_num_mmq / (gridDim.y*gridDim.x);
-    const int bidx_stop  = (blockIdx.y*nty + blockIdx.x + 1) * block_num_mmq / (gridDim.y*gridDim.x) + 1;
+    const int bidx_start = (int)((int64_t)(blockIdx.y*nty + blockIdx.x)     * block_num_mmq / (gridDim.y*gridDim.x));
+    const int bidx_stop  = min(block_num_mmq, (int)((int64_t)(blockIdx.y*nty + blockIdx.x + 1) * block_num_mmq / (gridDim.y*gridDim.x) + 1));
 
     for (int bidx = bidx_start; bidx < bidx_stop; ++bidx) {
         const int64_t kbc      = GGML_PAD((int64_t) bidx     *blocks_per_ne00*ntx*nty / block_num_mmq, blocks_per_warp);
@@ -2319,7 +2320,11 @@ static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t strea
     const dim3 block_nums_mmq(nsm, 1, 1);
 
     float * tmp_fixup = nullptr;
+#if CUDART_VERSION >= 11020
     CUDA_CHECK(cudaMallocAsync(&tmp_fixup, block_nums_mmq.x * mmq_x * mmq_y * sizeof(float), stream));
+#else
+    CUDA_CHECK(cudaMalloc(&tmp_fixup, block_nums_mmq.x * mmq_x * mmq_y * sizeof(float)));
+#endif
 
     if (args.ne01 % mmq_y == 0) {
         constexpr bool need_check = false;
@@ -2339,7 +2344,11 @@ static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t strea
             (args.dst, tmp_fixup, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
     }
 
+#if CUDART_VERSION >= 11020
     CUDA_CHECK(cudaFreeAsync(tmp_fixup, stream));
+#else
+    CUDA_CHECK(cudaFree(tmp_fixup));
+#endif
 }
 
 template <typename scalar_t, ggml_type type>
