@@ -2095,6 +2095,12 @@ static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t strea
         mul_mat_q_stream_k_fixup<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, 0, stream>>>
             (args.dst, tmp_fixup, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
     }
+
+#if CUDART_VERSION >= 11020
+    CUDA_CHECK(cudaFreeAsync(tmp_fixup, stream));
+#else
+    CUDA_CHECK(cudaFree(tmp_fixup));
+#endif
 }
 template <typename scalar_t, ggml_type type>
 void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream);
