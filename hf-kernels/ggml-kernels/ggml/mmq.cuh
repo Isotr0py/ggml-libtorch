@@ -1,7 +1,4 @@
 #pragma once
-
-#include <torch/all.h>
-
 #include "mma.cuh"
 
 #define MMQ_TILE_Y_K (WARP_SIZE + WARP_SIZE/QI8_1)
@@ -2077,25 +2074,33 @@ static void launch_mul_mat_q(const mmq_args<scalar_t> & args, cudaStream_t strea
         return;
     }
     const dim3 block_nums_mmq(nsm, 1, 1);
-    auto tmp_fixup = torch::empty(
-        {block_nums_mmq.x, mmq_x, mmq_y},
-        torch::TensorOptions().dtype(torch::kFloat32).device(torch::kCUDA));
-    float * tmp_fixup_ptr = tmp_fixup.data_ptr<float>();
+    float * tmp_fixup = nullptr;
+#if CUDART_VERSION >= 11020
+    CUDA_CHECK(cudaMallocAsync(&tmp_fixup, block_nums_mmq.x * mmq_x * mmq_y * sizeof(float), stream));
+#else
+    CUDA_CHECK(cudaMalloc(&tmp_fixup, block_nums_mmq.x * mmq_x * mmq_y * sizeof(float)));
+#endif
     if (args.ne01 % mmq_y == 0) {
         constexpr bool need_check = false;
         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
         mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_mmq, block_dims, shmem, stream>>>
-            (args.x, args.y, args.dst, tmp_fixup_ptr, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+            (args.x, args.y, args.dst, tmp_fixup, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
         mul_mat_q_stream_k_fixup<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, 0, stream>>>
-            (args.dst, tmp_fixup_ptr, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
+            (args.dst, tmp_fixup, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
     } else {
         constexpr bool need_check = true;
         CUDA_CHECK(cudaFuncSetAttribute(mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check>, cudaFuncAttributeMaxDynamicSharedMemorySize, shmem));
         mul_mat_q<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_mmq, block_dims, shmem, stream>>>
-            (args.x, args.y, args.dst, tmp_fixup_ptr, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
+            (args.x, args.y, args.dst, tmp_fixup, args.ne00, args.ne01, args.stride01, args.ne10, args.ne11, args.stride11, args.ne0);
         mul_mat_q_stream_k_fixup<scalar_t, type, mmq_x, MMQ_NWARPS, need_check><<<block_nums_xy_tiling, block_dims, 0, stream>>>
-            (args.dst, tmp_fixup_ptr, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
+            (args.dst, tmp_fixup, args.ne00, args.ne01, args.ne11, args.ne0, block_nums_mmq.x);
     }
+
+#if CUDART_VERSION >= 11020
+    CUDA_CHECK(cudaFreeAsync(tmp_fixup, stream));
+#else
+    CUDA_CHECK(cudaFree(tmp_fixup));
+#endif
 }
 template <typename scalar_t, ggml_type type>
 void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream);
