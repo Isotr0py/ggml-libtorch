@@ -25,12 +25,17 @@ void mul_mat_q_case(const mmq_args<scalar_t> & args, cudaStream_t stream) {
     int nparts_best = INT_MAX;
 
     for (int mmq_x = 8; mmq_x <= mmq_x_max && nparts_best > 1; mmq_x += 8) {
+        const int granularity = mmq_get_granularity_host(mmq_x, cc);
+        if (mmq_x % granularity != 0 || (size_t)mmq_get_shmem<type>(mmq_x, mmq_y, cc) > smpbo) {
+            continue;
+        }
+
         const int ntiles_x = (args.ne11 + mmq_x - 1) / mmq_x;
         const int nwaves_xy_tiling = ntiles_x * block_num_y;
 
         const int nparts = use_stream_k ? ntiles_x : nwaves_xy_tiling;
 
-        if (nparts < nparts_best && (size_t)mmq_get_shmem(type, mmq_x, mmq_y) <= smpbo) {
+        if (nparts < nparts_best) {
             mmq_x_best  = mmq_x;
             nparts_best = nparts;
         }
