@@ -1763,9 +1763,7 @@ static __device__ __forceinline__ void mmq_write_back_mma(
 #pragma unroll
             for (int l = 0; l < mma_C::ne; ++l) {
                 const int j = j0 + (threadIdx.y % ntx) * mma_C::J + mma_C::get_j(l);
-                // j_actual is the absolute column in the output tile (accounting for the
-                // (ty%ntx)*J offset already applied to dst above).
-                if ((threadIdx.y % ntx) * mma_C::J + j > j_max) {
+                if (j > j_max) {
                     continue;
                 }
                 const int i = i0 + n*mma_C::I + mma_C::get_i(l);
