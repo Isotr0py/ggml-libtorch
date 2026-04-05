@@ -19,6 +19,12 @@ cuda_device_info get_cuda_info() {
     // CUDA_CHECK(cudaGetDevice(&id));
     cudaGetDevice(&id);
 
+    thread_local int cached_device_id = -1;
+    thread_local cuda_device_info cached_info{};
+    if (cached_device_id == id) {
+        return cached_info;
+    }
+
     auto get_attr = [&](cudaDeviceAttr attr) -> int {
       int value = 0;
       if (cudaDeviceGetAttribute(&value, attr, id) != cudaSuccess) {
@@ -50,6 +56,8 @@ cuda_device_info get_cuda_info() {
     //   info.total_vram = 0;
     // }
 
+    cached_device_id = id;
+    cached_info = info;
     return info;
 }
 
@@ -205,11 +213,14 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
   options = torch::TensorOptions().dtype(torch::kInt32).device(W.device());
   // Pad batch to the next multiple of MMQ_MAX_BATCH_SIZE so that the mul_mat_q
   // kernel can safely load full tiles of mmq_x tokens without reading past the
-  // end of the buffer.  The quantize kernel still uses the real batch size for
-  // its layout (stride11 = batch), so we zero-initialize to keep the padding
-  // slots from contributing to the dot products.
+  // end of the buffer. The quantize kernel still uses the real batch size for
+  // its layout (stride11 = batch), so only the padded tail rows need to be
+  // zeroed.
   const int64_t padded_batch = ((batch + MMQ_MAX_BATCH_SIZE - 1) / MMQ_MAX_BATCH_SIZE) * MMQ_MAX_BATCH_SIZE;
-  at::Tensor quant_X = torch::zeros({padded_batch, padded / 32 * 9}, options);
+  at::Tensor quant_X = torch::empty({padded_batch, padded / 32 * 9}, options);
+  if (padded_batch > batch) {
+    quant_X.slice(0, batch, padded_batch).zero_();
+  }
   VLLM_DISPATCH_FLOATING_TYPES(X.scalar_type(), "ggml_mul_mat_a8", [&] {
     quantize_mmq_q8_1_cuda((scalar_t*)X.data_ptr(), (void*)quant_X.data_ptr(),
                            col, batch, type, stream);
