@@ -19,6 +19,12 @@ cuda_device_info get_cuda_info() {
     // CUDA_CHECK(cudaGetDevice(&id));
     cudaGetDevice(&id);
 
+    thread_local int cached_device_id = -1;
+    thread_local cuda_device_info cached_info{};
+    if (cached_device_id == id) {
+        return cached_info;
+    }
+
     auto get_attr = [&](cudaDeviceAttr attr) -> int {
       int value = 0;
       if (cudaDeviceGetAttribute(&value, attr, id) != cudaSuccess) {
@@ -50,6 +56,8 @@ cuda_device_info get_cuda_info() {
     //   info.total_vram = 0;
     // }
 
+    cached_device_id = id;
+    cached_info = info;
     return info;
 }
 
