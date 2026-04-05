@@ -1763,9 +1763,7 @@ static __device__ __forceinline__ void mmq_write_back_mma(
 #pragma unroll
             for (int l = 0; l < mma_C::ne; ++l) {
                 const int j = j0 + (threadIdx.y % ntx) * mma_C::J + mma_C::get_j(l);
-                // j_actual is the absolute column in the output tile (accounting for the
-                // (ty%ntx)*J offset already applied to dst above).
-                if ((threadIdx.y % ntx) * mma_C::J + j > j_max) {
+                if (j > j_max) {
                     continue;
                 }
                 const int i = i0 + n*mma_C::I + mma_C::get_i(l);
@@ -1943,8 +1941,11 @@ static __global__ void mul_mat_q(
     const int ntx = (ne11 + mmq_x - 1) / mmq_x; // Number of tiles x
     const int nty = (ne01 + mmq_y - 1) / mmq_y; // Number of tiles y
     // kbc == k block continuous, current index in continuous ijk space.
-    int64_t       kbc      = GGML_PAD((int64_t) blockIdx.x     *blocks_per_ne00*ntx*nty / gridDim.x, blocks_per_warp);
-    const int64_t kbc_stop = GGML_PAD((int64_t)(blockIdx.x + 1)*blocks_per_ne00*ntx*nty / gridDim.x, blocks_per_warp);
+    int64_t kbc      = (int64_t) blockIdx.x     *blocks_per_ne00*ntx*nty / gridDim.x;
+    int64_t kbc_stop = (int64_t)(blockIdx.x + 1)*blocks_per_ne00*ntx*nty / gridDim.x;
+
+    kbc      -= (kbc      % blocks_per_ne00) % blocks_per_warp;
+    kbc_stop -= (kbc_stop % blocks_per_ne00) % blocks_per_warp;
     // kb0 == k index when doing the matrix multiplication for an output tile.
     int kb0_start = kbc % blocks_per_ne00;
     int kb0_stop  = min(blocks_per_ne00, kb0_start + kbc_stop - kbc);
@@ -1985,8 +1986,11 @@ static __global__ void mul_mat_q_stream_k_fixup(
     const int bidx_start = (int)((int64_t)(blockIdx.y*nty + blockIdx.x)     * block_num_mmq / (gridDim.y*gridDim.x));
     const int bidx_stop  = min(block_num_mmq, (int)((int64_t)(blockIdx.y*nty + blockIdx.x + 1) * block_num_mmq / (gridDim.y*gridDim.x) + 1));
     for (int bidx = bidx_start; bidx < bidx_stop; ++bidx) {
-        const int64_t kbc      = GGML_PAD((int64_t) bidx     *blocks_per_ne00*ntx*nty / block_num_mmq, blocks_per_warp);
-        const int64_t kbc_stop = GGML_PAD((int64_t)(bidx + 1)*blocks_per_ne00*ntx*nty / block_num_mmq, blocks_per_warp);
+        int64_t kbc      = (int64_t) bidx     *blocks_per_ne00*ntx*nty / block_num_mmq;
+        int64_t kbc_stop = (int64_t)(bidx + 1)*blocks_per_ne00*ntx*nty / block_num_mmq;
+
+        kbc      -= (kbc      % blocks_per_ne00) % blocks_per_warp;
+        kbc_stop -= (kbc_stop % blocks_per_ne00) % blocks_per_warp;
         // Skip fixup tile if the MMQ CUDA block never wrote anything to it:
         if (kbc == kbc_stop || kbc_stop % blocks_per_ne00 == 0) {
             continue;
