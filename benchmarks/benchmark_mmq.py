@@ -9,6 +9,8 @@ from gguf import GGMLQuantizationType
 from utils import get_gguf_sample_tensors, seed_everything
 
 QUANT_TYPES_MAP = {
+    "IQ4_NL": GGMLQuantizationType.IQ4_NL,
+    "IQ4_XS": GGMLQuantizationType.IQ4_XS,
     "Q2_K": GGMLQuantizationType.Q2_K,
     "Q3_K": GGMLQuantizationType.Q3_K,
     "Q4_K": GGMLQuantizationType.Q4_K,

@@ -106,6 +106,8 @@ static bool mmq_need_sum(int64_t type_x) {
         case GGML_TYPE_Q5_K:
             return true;
         case GGML_TYPE_Q6_K:
+        case GGML_TYPE_IQ4_NL:
+        case GGML_TYPE_IQ4_XS:
             return false;
         default:
             break;
@@ -274,6 +276,12 @@ torch::Tensor ggml_mul_mat_a8(torch::Tensor W,  // quant weight
         break;
       case GGML_TYPE_Q6_K:
         mul_mat_q_case<scalar_t, GGML_TYPE_Q6_K>(kernel_args, stream);
+        break;
+      case GGML_TYPE_IQ4_NL:
+        mul_mat_q_case<scalar_t, GGML_TYPE_IQ4_NL>(kernel_args, stream);
+        break;
+      case GGML_TYPE_IQ4_XS:
+        mul_mat_q_case<scalar_t, GGML_TYPE_IQ4_XS>(kernel_args, stream);
         break;
     }
   });

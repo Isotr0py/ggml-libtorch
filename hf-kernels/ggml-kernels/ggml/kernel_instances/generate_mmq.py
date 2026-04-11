@@ -34,6 +34,8 @@ QUANT_TYPES = {
     "q4_k": "GGML_TYPE_Q4_K",
     "q5_k": "GGML_TYPE_Q5_K",
     "q6_k": "GGML_TYPE_Q6_K",
+    "iq4_nl": "GGML_TYPE_IQ4_NL",
+    "iq4_xs": "GGML_TYPE_IQ4_XS",
 }
 
 

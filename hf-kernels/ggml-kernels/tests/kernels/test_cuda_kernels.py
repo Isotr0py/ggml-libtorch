@@ -87,6 +87,9 @@ def test_mmvq(hidden_size: int, dtype: torch.dtype, quant_type: GGMLQuantization
 @pytest.mark.parametrize(
     "quant_type, name",
     [
+        # i-matrix
+        (GGMLQuantizationType.IQ4_NL, "IQ4_NL"),
+        (GGMLQuantizationType.IQ4_XS, "IQ4_XS"),
         # k-quants
         (GGMLQuantizationType.Q2_K, "Q2_K"),
         (GGMLQuantizationType.Q3_K, "Q3_K"),
@@ -137,6 +140,9 @@ def test_mmq(
 @pytest.mark.parametrize(
     "quant_type, name",
     [
+        # i-matrix
+        (GGMLQuantizationType.IQ4_NL, "IQ4_NL"),
+        (GGMLQuantizationType.IQ4_XS, "IQ4_XS"),
         # k-quants
         (GGMLQuantizationType.Q2_K, "Q2_K"),
         (GGMLQuantizationType.Q3_K, "Q3_K"),
@@ -182,4 +188,3 @@ def test_mmq_batching(
     # FIXME: X will cause nan values in full test suite, need to investigate
     del x
     torch.cuda.empty_cache()
-
